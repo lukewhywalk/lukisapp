@@ -1,12 +1,14 @@
-﻿# Öffnet einen Outlook-Entwurf mit der zuletzt gespeicherten Rechnung im Anhang.
+﻿# Bereitet die Rechnungsmail vor: sucht die neueste Rechnung in Downloads,
+# legt sie in die Zwischenablage und öffnet den vorausgefüllten Mailentwurf.
 #
 # Ablauf: in der App die Rechnung erstellen, "Drucken / Als PDF speichern"
-# (landet in Downloads), dann dieses Skript ausführen. Es sucht die neueste
-# Datei "Rechnung Paragliding*.pdf", hängt sie an und füllt Empfänger, Betreff
-# und Text aus. Gesendet wird nichts -- der Entwurf geht nur auf.
+# (landet in Downloads), dann dieses Skript ausführen. Im Mailfenster einmal
+# Strg+V drücken -- damit hängt der PDF an. Gesendet wird nichts.
 #
-# Voraussetzung: klassisches Outlook für Windows. Das neue Outlook (Store-App)
-# hat keine COM-Schnittstelle; dort bleibt der Weg über den Button in der App.
+# Warum der Umweg über die Zwischenablage: das neue Outlook (Store-App) hat
+# keine Automatisierungsschnittstelle, und mailto kann von sich aus keine Datei
+# anhängen. Ist klassisches Outlook installiert, nimmt das Skript stattdessen
+# den direkten Weg und hängt den PDF selbst an.
 #
 # Bequem als Verknüpfung:
 #   Rechtsklick auf den Desktop -> Neu -> Verknüpfung, als Ziel eintragen:
@@ -37,29 +39,40 @@ if ($alter.TotalHours -gt 24) {
 
 # "Rechnung Paragliding Lukas Hachen Juni 2026" -> "Juni 2026"
 $zeitraum = $pdf.BaseName -replace '^Rechnung Paragliding Lukas Hachen\s*', ''
+$betreff = "Rechnung Paragliding Lukas Hachen $zeitraum"
+$text = @(
+    'Guten Tag Tom',
+    '',
+    "Im Anhang die Rechnung für die im $zeitraum durchgeführten Tandemflüge.",
+    '',
+    'Freundliche Grüsse',
+    'Lukas Hachen'
+) -join "`r`n"
 
-try {
-    $outlook = New-Object -ComObject Outlook.Application
-} catch {
-    Write-Host 'Outlook laesst sich nicht ansteuern.' -ForegroundColor Red
-    Write-Host 'Das neue Outlook (Store-App) unterstuetzt das nicht -- klassisches Outlook noetig.'
-    Read-Host 'Enter zum Schliessen'
-    exit 1
+# Weg 1: klassisches Outlook, falls vorhanden -- haengt den PDF selbst an.
+$outlook = $null
+try { $outlook = New-Object -ComObject Outlook.Application } catch { }
+
+if ($outlook) {
+    $mail = $outlook.CreateItem(0)   # 0 = MailItem
+    $mail.To = $Empfaenger
+    $mail.Subject = $betreff
+    $mail.Body = $text
+    $mail.Attachments.Add($pdf.FullName) | Out-Null
+    $mail.Display()                  # Entwurf anzeigen, nicht senden
+    Write-Host 'Outlook-Entwurf mit Anhang geoeffnet. Pruefen und senden.' -ForegroundColor Green
+    exit 0
 }
 
-$mail = $outlook.CreateItem(0)   # 0 = MailItem
-$mail.To = $Empfaenger
-$mail.Subject = "Rechnung Paragliding Lukas Hachen $zeitraum"
-$mail.Body = @"
-Guten Tag Tom
+# Weg 2: neues Outlook -- PDF in die Zwischenablage, Entwurf per mailto oeffnen.
+Set-Clipboard -Path $pdf.FullName
+$url = 'mailto:{0}?subject={1}&body={2}' -f $Empfaenger,
+    [uri]::EscapeDataString($betreff),
+    [uri]::EscapeDataString($text)
+Start-Process $url
 
-Im Anhang die Rechnung für die im $zeitraum durchgeführten Tandemflüge.
-
-Freundliche Grüsse
-Lukas Hachen
-"@
-$mail.Attachments.Add($pdf.FullName) | Out-Null
-$mail.Display()   # Entwurf anzeigen, nicht senden
-
-Write-Host 'Outlook-Entwurf geoeffnet. Pruefen und senden.' -ForegroundColor Green
+Write-Host ''
+Write-Host 'Entwurf geoeffnet, PDF liegt in der Zwischenablage.' -ForegroundColor Green
+Write-Host 'Im Mailfenster in den Textbereich klicken und Strg+V druecken.' -ForegroundColor Green
+Write-Host 'Falls das Einfuegen nicht klappt: PDF aus dem Downloads-Ordner ins Fenster ziehen.'
 
