@@ -7,7 +7,7 @@
 
 "use strict";
 
-const CACHE = "lukis-v13";
+const CACHE = "lukis-v14";
 const RUNTIME = "lukis-runtime"; // Firebase SDK modules, cached on first use
 const ASSETS = [
   "./",
@@ -23,7 +23,16 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches
+      .open(CACHE)
+      // cache: "reload" bypasses the browser's own HTTP cache. Without it a
+      // fresh worker can precache a stale copy of a just-deployed file (GitHub
+      // Pages allows ten minutes of reuse) and then serve it indefinitely --
+      // which shows up as a half-updated app: new index.html, old app.js.
+      .then((cache) =>
+        Promise.all(ASSETS.map((a) => cache.add(new Request(a, { cache: "reload" }))))
+      )
+      .then(() => self.skipWaiting())
   );
 });
 
