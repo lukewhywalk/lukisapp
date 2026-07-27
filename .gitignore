@@ -5,3 +5,7 @@ desktop.ini
 
 # Local tooling (preview server, launch config) -- not part of the app
 .claude/
+
+# Rules mit echten E-Mail-Adressen und exportierte Flugdaten -- nie committen
+firestore.rules.local
+migration/*.json
