@@ -43,6 +43,17 @@ const CATEGORIES = ["PGI", "VKPI", "DA PGI", "DA VKPI"];
 // sessions, so this only needs touching when a wing joins or leaves the fleet.
 const GLIDERS = ["Takoo 6 2026"];
 
+// One hue per category. The two Big Blue products share the blue family and the
+// two Double Air ones the violet family, so the button is found by colour and
+// position before the label is read. Anything not listed falls back to the
+// app's primary, which keeps adding a category a one-line change.
+const CATEGORY_COLORS = {
+  PGI: "#2563eb",
+  VKPI: "#0284c7",
+  "DA PGI": "#7c3aed",
+  "DA VKPI": "#9333ea",
+};
+
 const GLIDER_KEY = "lukis.glider"; // localStorage key for the remembered pick
 
 const APP_NAME = "Lukis";
@@ -246,6 +257,7 @@ function renderCategoryButtons() {
     btn.type = "button";
     btn.className = "cat-btn";
     btn.dataset.category = category;
+    if (CATEGORY_COLORS[category]) btn.style.setProperty("--btn", CATEGORY_COLORS[category]);
     btn.append(el("span", "cat-name", category), el("span", "cat-count"));
     btn.addEventListener("click", () => bookCategory(category));
     grid.appendChild(btn);
@@ -258,14 +270,23 @@ function renderCategoryButtons() {
 function updateCategoryCounts(entries) {
   const today = formatDate(new Date().toISOString());
   const counts = new Map();
+  let total = 0;
   for (const entry of entries) {
     if (formatDate(entry.savedAt) !== today) continue;
     const category = entry.category || "—";
     counts.set(category, (counts.get(category) || 0) + 1);
+    total += 1; // counted here, not off the buttons, so a retired category still shows up
   }
   for (const btn of document.querySelectorAll(".cat-btn")) {
-    const count = counts.get(btn.dataset.category) || 0;
-    btn.querySelector(".cat-count").textContent = count || "";
+    btn.querySelector(".cat-count").textContent = counts.get(btn.dataset.category) || "";
+  }
+
+  const host = document.getElementById("today-total");
+  host.innerHTML = "";
+  if (!total) {
+    host.append("No flights yet today");
+  } else {
+    host.append(el("strong", null, String(total)), total === 1 ? "flight today" : "flights today");
   }
 }
 
@@ -536,6 +557,18 @@ function toggleDate(date, header, rows) {
   else expandedDates.delete(date);
 }
 
+// Inline icons rather than the "✎" and "×" glyphs: those sat differently in
+// every font and could not be sized with the row. Fixed markup, no user data.
+const ICON_EDIT =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ICON_DELETE =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+  'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+  '<path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/>' +
+  '<path d="M10 11v6M14 11v6"/></svg>';
+
 function renderEntryRow(entry) {
   const li = document.createElement("li");
   li.className = "entry-row";
@@ -556,14 +589,14 @@ function renderEntryRow(entry) {
   edit.className = "entry-edit";
   edit.type = "button";
   edit.setAttribute("aria-label", "Edit booking");
-  edit.textContent = "✎";
+  edit.innerHTML = ICON_EDIT;
   edit.addEventListener("click", () => startEdit(entry.id));
 
   const del = document.createElement("button");
   del.className = "entry-del";
   del.type = "button";
   del.setAttribute("aria-label", "Delete booking");
-  del.textContent = "×";
+  del.innerHTML = ICON_DELETE;
   del.addEventListener("click", () => onDelete(entry.id));
 
   actions.appendChild(edit);
@@ -653,10 +686,14 @@ function renderYearCard(year, data, columns) {
   table.appendChild(thead);
 
   const tbody = el("tbody");
+  // Bars are scaled to the busiest month of this year, so each card reads on its
+  // own terms instead of being flattened by an exceptional season elsewhere.
+  const busiest = Math.max(...[...data.months.values()].map((m) => m.total));
   for (const month of [...data.months.keys()].sort((a, b) => b - a)) {
-    tbody.appendChild(statsRow(MONTHS[month], data.months.get(month), columns, null));
+    const stats = data.months.get(month);
+    tbody.appendChild(statsRow(MONTHS[month], stats, columns, null, stats.total / busiest));
   }
-  tbody.appendChild(statsRow("Total", data, columns, "total-row"));
+  tbody.appendChild(statsRow("Total", data, columns, "total-row", 0));
   table.appendChild(tbody);
 
   const wrap = el("div", "table-wrap");
@@ -666,14 +703,16 @@ function renderYearCard(year, data, columns) {
 }
 
 // One table row. A zero is drawn as a dash so the filled cells stand out.
-function statsRow(label, counts, columns, className) {
+function statsRow(label, counts, columns, className, ratio) {
   const row = el("tr", className);
   row.appendChild(el("td", null, label));
   for (const column of columns) {
     const n = counts.byCat.get(column) || 0;
     row.appendChild(el("td", n ? null : "zero", n || "–"));
   }
-  row.appendChild(el("td", "col-total", counts.total));
+  const total = el("td", "col-total", counts.total);
+  if (ratio > 0) total.style.setProperty("--bar", `${Math.round(ratio * 100)}%`);
+  row.appendChild(total);
   return row;
 }
 
