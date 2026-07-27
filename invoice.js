@@ -340,6 +340,21 @@ function sheetHtml(invoice) {
 
 let built = null; // the invoice currently shown, needed for the PDF file name
 
+// The sheet is a fixed 210 mm wide, which overflows the column on anything
+// narrower than a desktop. Scale it down to fit rather than clipping it; the
+// print rules drop the transform so paper output stays at true size.
+function fitPreview() {
+  const host = document.getElementById("inv-sheet");
+  const sheet = host.querySelector(".sheet");
+  if (!sheet) return;
+  sheet.style.transform = "none";
+  host.style.height = "";
+  const scale = Math.min(1, host.clientWidth / sheet.offsetWidth);
+  sheet.style.transformOrigin = "top left";
+  sheet.style.transform = `scale(${scale})`;
+  host.style.height = `${sheet.offsetHeight * scale}px`;
+}
+
 function build() {
   const invoice = readForm();
   if (!invoice.items.some((item) => item.count > 0)) {
@@ -352,6 +367,7 @@ function build() {
   built = invoice;
   document.getElementById("inv-sheet").innerHTML = sheetHtml(invoice);
   document.getElementById("inv-print").hidden = false;
+  fitPreview();
 }
 
 // "Save as PDF" takes its file name from the document title, so swap the title
@@ -387,4 +403,5 @@ export function initInvoice() {
   document.getElementById("inv-month").addEventListener("change", syncCounts);
   document.getElementById("inv-build").addEventListener("click", build);
   document.getElementById("inv-print").addEventListener("click", print);
+  window.addEventListener("resize", fitPreview);
 }

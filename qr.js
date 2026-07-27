@@ -233,9 +233,20 @@ function buildFunctionPatterns(version, size, modules, reserved) {
     set(i, 6, value);
   }
 
-  for (const row of ALIGNMENT[version]) {
-    for (const col of ALIGNMENT[version]) {
-      if (reserved[row][col]) continue; // overlaps a finder -- omitted by the standard
+  // Only the three centres that would land on a finder are omitted. Testing the
+  // reserved flag instead would also drop the patterns that merely cross the
+  // timing lines -- those belong there, and leaving them out corrupts the
+  // symbol from version 7 on, where such centres first appear.
+  const centres = ALIGNMENT[version];
+  const firstCentre = centres[0];
+  const lastCentre = centres[centres.length - 1];
+  for (const row of centres) {
+    for (const col of centres) {
+      const onFinder =
+        (row === firstCentre && col === firstCentre) ||
+        (row === firstCentre && col === lastCentre) ||
+        (row === lastCentre && col === firstCentre);
+      if (onFinder) continue;
       for (let dr = -2; dr <= 2; dr++) {
         for (let dc = -2; dc <= 2; dc++) {
           const ring = Math.max(Math.abs(dr), Math.abs(dc));
