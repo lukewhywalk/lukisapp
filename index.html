@@ -79,9 +79,13 @@
     .cat-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:8px; }
     .cat-btn {
       border:none; border-radius:12px; background:var(--primary); color:#fff;
-      font-size:18px; font-weight:700; font-family:inherit; padding:24px 12px; cursor:pointer;
+      font-size:18px; font-weight:700; font-family:inherit; padding:20px 12px; cursor:pointer;
       min-height:88px; box-shadow:0 1px 2px rgba(0,0,0,.08);
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
     }
+    /* Today's count. Reserves its line so the labels stay aligned across the
+       row whether or not a category has been booked yet. */
+    .cat-count { font-size:13px; font-weight:600; line-height:1; min-height:13px; opacity:.85; }
     .cat-btn:active { background:var(--primary-press); transform:translateY(1px); }
     .list-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
     .recent-actions { display:flex; gap:8px; }

@@ -245,9 +245,27 @@ function renderCategoryButtons() {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cat-btn";
-    btn.textContent = category;
+    btn.dataset.category = category;
+    btn.append(el("span", "cat-name", category), el("span", "cat-count"));
     btn.addEventListener("click", () => bookCategory(category));
     grid.appendChild(btn);
+  }
+}
+
+// Today's tally, shown on the buttons themselves. Counted by booking time, so a
+// back-dated entry lands on the day it was flown rather than the day it was
+// typed in. A category with nothing yet stays blank instead of showing a zero.
+function updateCategoryCounts(entries) {
+  const today = formatDate(new Date().toISOString());
+  const counts = new Map();
+  for (const entry of entries) {
+    if (formatDate(entry.savedAt) !== today) continue;
+    const category = entry.category || "—";
+    counts.set(category, (counts.get(category) || 0) + 1);
+  }
+  for (const btn of document.querySelectorAll(".cat-btn")) {
+    const count = counts.get(btn.dataset.category) || 0;
+    btn.querySelector(".cat-count").textContent = count || "";
   }
 }
 
@@ -436,6 +454,7 @@ function setView(view) {
 }
 
 function renderEntries(entries) {
+  updateCategoryCounts(entries);
   renderStats(entries);
   setInvoiceEntries(entries);
 
