@@ -107,6 +107,20 @@
     .entry-edit:active { color:var(--primary); }
     .entry-del { background:none; border:none; color:var(--muted); font-size:22px; line-height:1; cursor:pointer; padding:2px 6px; }
     .entry-del:active { color:var(--danger); }
+    .stats-year { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px; }
+    .stats-year h2 { font-size:18px; margin:0; }
+    .table-wrap { overflow-x:auto; }
+    .stats-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .stats-table th, .stats-table td { padding:7px 5px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .stats-table th:first-child, .stats-table td:first-child { text-align:left; }
+    .stats-table thead th {
+      font-size:11px; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--border);
+    }
+    .stats-table tbody tr + tr td { border-top:1px solid var(--border); }
+    .stats-table .col-total { font-weight:600; }
+    .stats-table .total-row td { font-weight:700; border-top:2px solid var(--border); }
+    .stats-table .zero { color:var(--muted); }
     .account { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
     .account .btn-ghost { width:auto; padding:8px 10px; }
     .muted { color:var(--muted); font-size:14px; }
@@ -125,6 +139,7 @@
     <nav class="tabs" id="tabs" role="tablist" hidden>
       <button class="tab is-active" type="button" data-view="log" role="tab">Log</button>
       <button class="tab" type="button" data-view="all" role="tab">All</button>
+      <button class="tab" type="button" data-view="stats" role="tab">Stats</button>
     </nav>
   </header>
 
@@ -208,6 +223,14 @@
           <span id="account-email" class="muted"></span>
           <button id="signout-btn" type="button" class="btn btn-ghost">Sign out</button>
         </div>
+      </div>
+    </section>
+    <!-- Stats view: bookings per month and year, split by category -->
+    <section id="view-stats" class="view" hidden>
+      <!-- One card per year, rendered from the same snapshot as the list -->
+      <div id="stats-body"></div>
+      <div class="card" id="stats-empty">
+        <p class="muted">No entries yet.</p>
       </div>
     </section>
   </main>

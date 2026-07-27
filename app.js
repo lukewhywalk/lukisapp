@@ -193,6 +193,14 @@ function pad(n) {
   return String(n).padStart(2, "0");
 }
 
+// Small builder to keep the stats tables readable.
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
 // Local, sortable timestamp for display and CSV, e.g. "2026-06-19 14:05".
 function formatTimestamp(iso) {
   const d = new Date(iso);
@@ -384,7 +392,7 @@ function cancelEdit() {
 /* --------------------------------- Views --------------------------------- */
 
 function hideAllViews() {
-  for (const id of ["view-loading", "view-auth", "view-log", "view-all"]) {
+  for (const id of ["view-loading", "view-auth", "view-log", "view-all", "view-stats"]) {
     document.getElementById(id).hidden = true;
   }
 }
@@ -418,6 +426,7 @@ function setView(view) {
   document.getElementById("view-auth").hidden = true;
   document.getElementById("view-log").hidden = view !== "log";
   document.getElementById("view-all").hidden = view !== "all";
+  document.getElementById("view-stats").hidden = view !== "stats";
   for (const tab of document.querySelectorAll(".tab")) {
     tab.classList.toggle("is-active", tab.dataset.view === view);
   }
@@ -425,6 +434,8 @@ function setView(view) {
 }
 
 function renderEntries(entries) {
+  renderStats(entries);
+
   const sorted = [...entries].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)); // newest first
 
   document.getElementById("count").textContent = sorted.length
@@ -540,6 +551,108 @@ function renderEntryRow(entry) {
   li.appendChild(cat);
   li.appendChild(actions);
   return li;
+}
+
+/* --------------------------------- Stats --------------------------------- */
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// The category columns: the configured ones first, then any category still
+// present in old bookings but since removed from CATEGORIES, so renaming a
+// category never makes past flights disappear from the totals.
+function statsColumns(entries) {
+  const extra = [];
+  for (const e of entries) {
+    const cat = e.category || "—";
+    if (!CATEGORIES.includes(cat) && !extra.includes(cat)) extra.push(cat);
+  }
+  return [...CATEGORIES, ...extra.sort()];
+}
+
+// Counts bookings into year -> month -> category, carrying the row and year
+// totals alongside so rendering stays a plain lookup.
+function buildStats(entries) {
+  const years = new Map();
+  for (const entry of entries) {
+    const d = new Date(entry.savedAt);
+    if (Number.isNaN(d.getTime())) continue; // ignore an unparseable timestamp
+    const cat = entry.category || "—";
+
+    let year = years.get(d.getFullYear());
+    if (!year) {
+      year = { months: new Map(), byCat: new Map(), total: 0 };
+      years.set(d.getFullYear(), year);
+    }
+    let month = year.months.get(d.getMonth());
+    if (!month) {
+      month = { byCat: new Map(), total: 0 };
+      year.months.set(d.getMonth(), month);
+    }
+
+    month.byCat.set(cat, (month.byCat.get(cat) || 0) + 1);
+    month.total += 1;
+    year.byCat.set(cat, (year.byCat.get(cat) || 0) + 1);
+    year.total += 1;
+  }
+  return years;
+}
+
+function renderStats(entries) {
+  const host = document.getElementById("stats-body");
+  host.innerHTML = "";
+  document.getElementById("stats-empty").style.display = entries.length ? "none" : "block";
+  if (!entries.length) return;
+
+  const columns = statsColumns(entries);
+  const years = buildStats(entries);
+  for (const year of [...years.keys()].sort((a, b) => b - a)) {
+    host.appendChild(renderYearCard(year, years.get(year), columns));
+  }
+}
+
+// One card per year: a row per month that has bookings (newest first, so the
+// current month is at the top), then the year total.
+function renderYearCard(year, data, columns) {
+  const card = el("div", "card");
+
+  const head = el("div", "stats-year");
+  const total = `${data.total} ${data.total === 1 ? "booking" : "bookings"}`;
+  head.append(el("h2", null, String(year)), el("span", "muted", total));
+  card.appendChild(head);
+
+  const table = el("table", "stats-table");
+
+  const headRow = el("tr");
+  headRow.appendChild(el("th", null, "Month"));
+  for (const column of columns) headRow.appendChild(el("th", null, column));
+  headRow.appendChild(el("th", "col-total", "Total"));
+  const thead = el("thead");
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = el("tbody");
+  for (const month of [...data.months.keys()].sort((a, b) => b - a)) {
+    tbody.appendChild(statsRow(MONTHS[month], data.months.get(month), columns, null));
+  }
+  tbody.appendChild(statsRow("Total", data, columns, "total-row"));
+  table.appendChild(tbody);
+
+  const wrap = el("div", "table-wrap");
+  wrap.appendChild(table);
+  card.appendChild(wrap);
+  return card;
+}
+
+// One table row. A zero is drawn as a dash so the filled cells stand out.
+function statsRow(label, counts, columns, className) {
+  const row = el("tr", className);
+  row.appendChild(el("td", null, label));
+  for (const column of columns) {
+    const n = counts.byCat.get(column) || 0;
+    row.appendChild(el("td", n ? null : "zero", n || "–"));
+  }
+  row.appendChild(el("td", "col-total", counts.total));
+  return row;
 }
 
 /* ------------------------------ List actions ----------------------------- */
