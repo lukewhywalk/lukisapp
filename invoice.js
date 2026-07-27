@@ -38,6 +38,12 @@ const TERMS = "Fällig 15 Tage nach Erhalt";
 
 const MAIL_TO = "tom@paragliding-interlaken.ch";
 
+// Prices are the standing rates, not a per-invoice figure -- whatever was last
+// entered becomes the default for the next month. The fallbacks apply only to a
+// browser that has never had them set.
+const PRICE_KEY = "lukis.prices";
+const DEFAULT_PRICES = { bigblue: 100, doubleair: 170, fv: 33 };
+
 // Which booking categories roll up into which invoice line.
 const LINES = [
   { key: "bigblue", label: "Tandemflug Big Blue", categories: ["PGI", "VKPI"] },
@@ -134,6 +140,32 @@ function syncCounts() {
   const month = document.getElementById("inv-month").value;
   document.getElementById("inv-count-bigblue").value = countFor("bigblue", month);
   document.getElementById("inv-count-doubleair").value = countFor("doubleair", month);
+}
+
+function restorePrices() {
+  let stored = null;
+  try {
+    stored = JSON.parse(localStorage.getItem(PRICE_KEY) || "null");
+  } catch {
+    /* unreadable or unavailable -- fall back to the defaults */
+  }
+  for (const line of LINES) {
+    const saved = stored ? Number(stored[line.key]) : NaN;
+    const value = Number.isFinite(saved) && saved >= 0 ? saved : DEFAULT_PRICES[line.key];
+    document.getElementById(`inv-price-${line.key}`).value = value;
+  }
+}
+
+function rememberPrices() {
+  const prices = {};
+  for (const line of LINES) {
+    prices[line.key] = Number(document.getElementById(`inv-price-${line.key}`).value) || 0;
+  }
+  try {
+    localStorage.setItem(PRICE_KEY, JSON.stringify(prices));
+  } catch {
+    /* best-effort only */
+  }
 }
 
 function readForm() {
@@ -269,15 +301,17 @@ function qrBillHtml(invoice) {
 /* -------------------------------- Sheet ---------------------------------- */
 
 function sheetHtml(invoice) {
+  // The currency sits in the column heading rather than on every line -- three
+  // repetitions of "CHF" down a column is noise, and bare figures line up.
   const rows = invoice.items
     .filter((item) => item.count > 0)
     .map(
       (item) => `
         <tr>
           <td>${escapeHtml(item.label)}</td>
-          <td class="num">CHF ${escapeHtml(money(item.price))}</td>
+          <td class="num">${escapeHtml(money(item.price))}</td>
           <td class="num">${item.count}</td>
-          <td class="num">CHF ${escapeHtml(money(item.amount))}</td>
+          <td class="num">${escapeHtml(money(item.amount))}</td>
         </tr>`
     )
     .join("");
@@ -307,32 +341,47 @@ function sheetHtml(invoice) {
 
         <table class="inv-items">
           <thead>
-            <tr><th>BESCHREIBUNG</th><th class="num">Preis</th><th class="num">Anzahl</th><th class="num">BETRAG</th></tr>
+            <tr>
+              <th>Beschreibung</th>
+              <th class="num">Preis CHF</th>
+              <th class="num">Anzahl</th>
+              <th class="num">Betrag CHF</th>
+            </tr>
           </thead>
-          <tbody>
-            ${rows}
-            <tr class="sum"><td colspan="3">Total</td><td class="num">CHF ${escapeHtml(money(invoice.subtotal))}</td></tr>
-            <tr><td colspan="3">Zzgl. MWST ${escapeHtml(String(VAT_PERMILLE / 10))}%</td><td class="num">CHF ${escapeHtml(money(invoice.vat))}</td></tr>
-            <tr class="grand"><td colspan="3">Betrag inkl. MWST</td><td class="num">CHF ${escapeHtml(money(invoice.total))}</td></tr>
-          </tbody>
+          <tbody>${rows}</tbody>
         </table>
 
+        <div class="inv-totals">
+          <div class="inv-sum"><span>Total</span><span>${escapeHtml(money(invoice.subtotal))}</span></div>
+          <div class="inv-sum"><span>Zzgl. MWST ${escapeHtml(String(VAT_PERMILLE / 10))}%</span><span>${escapeHtml(money(invoice.vat))}</span></div>
+          <div class="inv-sum inv-grand"><span>Betrag inkl. MWST</span><span>CHF ${escapeHtml(money(invoice.total))}</span></div>
+        </div>
+
+        <p class="inv-thanks">Vielen Dank für die Zusammenarbeit!</p>
+
         <div class="inv-foot">
-          <p class="inv-label">ZAHLUNGSBEDINGUNGEN</p>
-          <p>${escapeHtml(TERMS)}</p>
-          <p>
-            Kontoangaben:<br>
-            ${escapeHtml(formatIban(CREDITOR.iban))}<br>
-            ${escapeHtml(CREDITOR.name)}<br>
-            ${escapeHtml(`${CREDITOR.street} ${CREDITOR.building}`)}<br>
-            ${escapeHtml(`${CREDITOR.zip} ${CREDITOR.city}`)}
-          </p>
-          <p>MWST Nr: ${escapeHtml(CREDITOR.vat)}</p>
-          <p>Vielen Dank für die Zusammenarbeit!</p>
+          <div>
+            <p class="inv-label">ZAHLUNGSBEDINGUNGEN</p>
+            <p>${escapeHtml(TERMS)}</p>
+          </div>
+          <div>
+            <p class="inv-label">KONTOANGABEN</p>
+            <p>
+              ${escapeHtml(formatIban(CREDITOR.iban))}<br>
+              ${escapeHtml(CREDITOR.name)}<br>
+              ${escapeHtml(`${CREDITOR.street} ${CREDITOR.building}`)}<br>
+              ${escapeHtml(`${CREDITOR.zip} ${CREDITOR.city}`)}
+            </p>
+          </div>
+          <div>
+            <p class="inv-label">MWST-NUMMER</p>
+            <p>${escapeHtml(CREDITOR.vat)}</p>
+          </div>
         </div>
         </div>
       </div>
       <div class="page page-bill">
+        <p class="bill-note">${escapeHtml(subjectFor(monthLabel(invoice.month)))} — Zahlteil</p>
         ${qrBillHtml(invoice)}
       </div>
     </div>`;
@@ -426,6 +475,10 @@ export function initInvoice() {
   const today = new Date();
   document.getElementById("inv-date").value =
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  restorePrices();
+  for (const line of LINES) {
+    document.getElementById(`inv-price-${line.key}`).addEventListener("change", rememberPrices);
+  }
   document.getElementById("inv-month").addEventListener("change", syncCounts);
   document.getElementById("inv-build").addEventListener("click", build);
   document.getElementById("inv-print").addEventListener("click", print);

@@ -165,6 +165,15 @@
     }
     .stats-table .total-row td { font-weight:700; border-top:2px solid var(--border); }
     .stats-table .zero { color:var(--muted); }
+    .stats-gliders { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
+    .stats-gliders h3 {
+      font-size:11px; font-weight:700; color:var(--muted);
+      text-transform:uppercase; letter-spacing:.03em; margin:0 0 5px;
+    }
+    .glider-row {
+      display:flex; justify-content:space-between; gap:12px; padding:3px 0;
+      font-size:14px; font-variant-numeric:tabular-nums;
+    }
     .account { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
     .account .btn-ghost { width:auto; padding:8px 10px; }
     .muted { color:var(--muted); font-size:14px; }
@@ -198,24 +207,49 @@
       display:flex; flex-direction:column; box-shadow:0 1px 6px rgba(0,0,0,.15);
     }
     .page + .page { margin-top:8mm; }
-    /* The payment part sits flush with the bottom edge of its own page. */
-    .page-bill { justify-content:flex-end; }
-    .sheet-body { flex:1; padding:18mm 20mm 6mm; font-size:10pt; line-height:1.35; }
-    .inv-top { display:flex; justify-content:space-between; gap:10mm; }
+    /* Reference line at the top, payment part flush with the bottom edge. */
+    .page-bill { justify-content:space-between; }
+    .sheet-body {
+      flex:1; padding:18mm 20mm 12mm; font-size:10pt; line-height:1.4;
+      display:flex; flex-direction:column;
+    }
+    .inv-top { display:flex; justify-content:space-between; gap:10mm; font-size:9.5pt; }
     .inv-meta { text-align:right; white-space:nowrap; }
-    .inv-title { font-size:20pt; letter-spacing:.06em; margin:14mm 0 8mm; }
-    .inv-label { font-size:8pt; font-weight:700; letter-spacing:.08em; margin:0 0 1mm; }
-    .inv-to { margin:0 0 10mm; }
-    .inv-subject { margin:0 0 4mm; }
-    .inv-items { width:100%; border-collapse:collapse; }
-    .inv-items th, .inv-items td { padding:2mm 1mm; text-align:left; }
-    .inv-items .num { text-align:right; white-space:nowrap; }
-    .inv-items thead th { font-size:8pt; letter-spacing:.06em; border-bottom:.4mm solid #000; }
-    .inv-items tbody td { border-bottom:.1mm solid #bbb; }
-    .inv-items .sum td { border-top:.3mm solid #000; border-bottom:none; padding-top:3mm; }
-    .inv-items .grand td { font-weight:700; border-top:.2mm solid #000; border-bottom:none; }
-    .inv-foot { margin-top:12mm; font-size:9pt; }
-    .inv-foot p { margin:0 0 3mm; }
+    .inv-title {
+      font-size:22pt; font-weight:700; letter-spacing:.09em;
+      margin:16mm 0 7mm; padding-bottom:2.5mm; border-bottom:.35mm solid #111;
+    }
+    /* Section labels recede into grey so the content carries the page */
+    .inv-label { font-size:7.5pt; font-weight:700; letter-spacing:.11em; color:#666; margin:0 0 1.5mm; }
+    .inv-to { margin:0 0 9mm; }
+    .inv-subject { font-weight:700; margin:0 0 5mm; }
+    .inv-items { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+    .inv-items th, .inv-items td { text-align:left; padding:2.4mm 0; }
+    .inv-items .num { text-align:right; white-space:nowrap; padding-left:8mm; }
+    .inv-items thead th {
+      font-size:7.5pt; font-weight:700; letter-spacing:.09em; color:#666;
+      padding:0 0 1.8mm; border-bottom:.35mm solid #111;
+    }
+    .inv-items thead th.num { padding-left:8mm; }
+    .inv-items tbody td { border-bottom:.12mm solid #ddd; }
+    /* Totals as their own right-aligned block, so the table above stays a plain
+       list of what was flown instead of mixing items and sums. */
+    .inv-totals { width:80mm; margin:5mm 0 0 auto; font-variant-numeric:tabular-nums; }
+    .inv-sum { display:flex; justify-content:space-between; gap:8mm; padding:1.5mm 0; }
+    .inv-grand {
+      font-weight:700; font-size:11.5pt;
+      border-top:.35mm solid #111; margin-top:1.5mm; padding-top:2.5mm;
+    }
+    .inv-thanks { margin:10mm 0 0; }
+    /* Payment details as a footer band along the bottom edge, three columns
+       instead of a stack that drifted up the page on a short invoice. */
+    .inv-foot {
+      margin-top:auto; padding-top:5mm; border-top:.12mm solid #ddd;
+      display:flex; gap:10mm; font-size:8.5pt; color:#333;
+    }
+    .inv-foot > div { flex:1; }
+    .inv-foot p { margin:0; }
+    .bill-note { margin:18mm 20mm 0; font-size:9pt; color:#555; }
 
     /* QR-bill: 210 x 105 mm, receipt 62 mm, payment part 148 mm. */
     .qrbill { height:105mm; display:flex; border-top:.2mm dashed #000; color:#000; }
@@ -379,6 +413,9 @@
             </tr>
           </tbody>
         </table>
+        <p class="muted" style="margin:-6px 0 14px; font-size:13px;">
+          Geänderte Preise gelten ab sofort als Standard für die nächste Rechnung.
+        </p>
         <div class="form-actions">
           <button id="inv-build" type="button" class="btn btn-primary">Rechnung erstellen</button>
           <button id="inv-print" type="button" class="btn btn-secondary" hidden>Drucken / Als PDF speichern</button>

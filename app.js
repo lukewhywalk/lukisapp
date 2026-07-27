@@ -635,9 +635,11 @@ function buildStats(entries) {
 
     let year = years.get(d.getFullYear());
     if (!year) {
-      year = { months: new Map(), byCat: new Map(), total: 0 };
+      year = { months: new Map(), byCat: new Map(), byGlider: new Map(), total: 0 };
       years.set(d.getFullYear(), year);
     }
+    const glider = entry.glider || "—"; // bookings from before gliders existed
+    year.byGlider.set(glider, (year.byGlider.get(glider) || 0) + 1);
     let month = year.months.get(d.getMonth());
     if (!month) {
       month = { byCat: new Map(), total: 0 };
@@ -699,7 +701,22 @@ function renderYearCard(year, data, columns) {
   const wrap = el("div", "table-wrap");
   wrap.appendChild(table);
   card.appendChild(wrap);
+  card.appendChild(renderGliderTally(data.byGlider));
   return card;
+}
+
+// Flights per wing for the year, busiest first. A month breakdown would be
+// mostly empty columns -- a wing is flown for a whole season at a time.
+function renderGliderTally(byGlider) {
+  const block = el("div", "stats-gliders");
+  block.appendChild(el("h3", null, "Gliders"));
+  const sorted = [...byGlider.entries()].sort((a, b) => b[1] - a[1]);
+  for (const [glider, count] of sorted) {
+    const row = el("div", "glider-row");
+    row.append(el("span", null, glider), el("span", null, count));
+    block.appendChild(row);
+  }
+  return block;
 }
 
 // One table row. A zero is drawn as a dash so the filled cells stand out.
