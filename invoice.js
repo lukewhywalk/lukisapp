@@ -282,7 +282,8 @@ function sheetHtml(invoice) {
 
   return `
     <div class="sheet">
-      <div class="sheet-body">
+      <div class="page">
+        <div class="sheet-body">
         <div class="inv-top">
           <div>
             ${escapeHtml(CREDITOR.name)}<br>
@@ -327,22 +328,40 @@ function sheetHtml(invoice) {
           <p>MWST Nr: ${escapeHtml(CREDITOR.vat)}</p>
           <p>Vielen Dank für die Zusammenarbeit!</p>
         </div>
+        </div>
       </div>
-      ${qrBillHtml(invoice)}
+      <div class="page page-bill">
+        ${qrBillHtml(invoice)}
+      </div>
     </div>`;
 }
 
 /* --------------------------------- Wiring -------------------------------- */
+
+let built = null; // the invoice currently shown, needed for the PDF file name
 
 function build() {
   const invoice = readForm();
   if (!invoice.items.some((item) => item.count > 0)) {
     document.getElementById("inv-sheet").innerHTML =
       '<p class="muted">Keine Positionen — mindestens eine Anzahl muss grösser als null sein.</p>';
+    document.getElementById("inv-print").hidden = true;
+    built = null;
     return;
   }
+  built = invoice;
   document.getElementById("inv-sheet").innerHTML = sheetHtml(invoice);
   document.getElementById("inv-print").hidden = false;
+}
+
+// "Save as PDF" takes its file name from the document title, so swap the title
+// for the duration of the print dialog and put it back afterwards.
+function print() {
+  if (!built) return;
+  const original = document.title;
+  document.title = `Rechnung Paragliding Lukas Hachen ${monthLabel(built.month)}`;
+  window.addEventListener("afterprint", () => { document.title = original; }, { once: true });
+  window.print();
 }
 
 // Called on every snapshot so the month list and the counts follow the data.
@@ -367,5 +386,5 @@ export function initInvoice() {
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   document.getElementById("inv-month").addEventListener("change", syncCounts);
   document.getElementById("inv-build").addEventListener("click", build);
-  document.getElementById("inv-print").addEventListener("click", () => window.print());
+  document.getElementById("inv-print").addEventListener("click", print);
 }

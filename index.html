@@ -148,11 +148,14 @@
 
     /* --------------------- Invoice sheet: screen + print ------------------ */
     .sheet-preview { overflow-x:auto; padding-bottom:8px; }
-    .sheet {
-      width:210mm; min-height:297mm; margin:0 auto; background:#fff; color:#000;
-      font-family:Helvetica,Arial,sans-serif; display:flex; flex-direction:column;
-      box-shadow:0 1px 6px rgba(0,0,0,.15);
+    .sheet { width:210mm; margin:0 auto; color:#000; font-family:Helvetica,Arial,sans-serif; }
+    .page {
+      width:210mm; height:297mm; background:#fff; overflow:hidden;
+      display:flex; flex-direction:column; box-shadow:0 1px 6px rgba(0,0,0,.15);
     }
+    .page + .page { margin-top:8mm; }
+    /* The payment part sits flush with the bottom edge of its own page. */
+    .page-bill { justify-content:flex-end; }
     .sheet-body { flex:1; padding:18mm 20mm 6mm; font-size:10pt; line-height:1.35; }
     .inv-top { display:flex; justify-content:space-between; gap:10mm; }
     .inv-meta { text-align:right; white-space:nowrap; }
@@ -195,7 +198,9 @@
       .container { max-width:none; margin:0; padding:0; }
       #view-invoice { display:block !important; }
       .sheet-preview { overflow:visible; padding:0; }
-      .sheet { width:210mm; height:297mm; margin:0; box-shadow:none; }
+      .sheet { width:210mm; margin:0; }
+      .page { box-shadow:none; margin:0; }
+      .page + .page { margin-top:0; break-before:page; page-break-before:always; }
     }
   </style>
 </head>
