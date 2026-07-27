@@ -71,8 +71,16 @@ $url = 'mailto:{0}?subject={1}&body={2}' -f $Empfaenger,
     [uri]::EscapeDataString($text)
 Start-Process $url
 
+# Den Ordner mit markierter Datei daneben oeffnen -- damit ist der PDF sofort
+# greifbar, falls das Einfuegen aus der Zwischenablage nicht angenommen wird.
+Start-Process explorer.exe -ArgumentList ('/select,"{0}"' -f $pdf.FullName)
+
 Write-Host ''
-Write-Host 'Entwurf geoeffnet, PDF liegt in der Zwischenablage.' -ForegroundColor Green
-Write-Host 'Im Mailfenster in den Textbereich klicken und Strg+V druecken.' -ForegroundColor Green
-Write-Host 'Falls das Einfuegen nicht klappt: PDF aus dem Downloads-Ordner ins Fenster ziehen.'
+Write-Host 'Entwurf geoeffnet. Der PDF liegt in der Zwischenablage,' -ForegroundColor Green
+Write-Host 'und der Downloads-Ordner steht mit markierter Datei bereit.' -ForegroundColor Green
+Write-Host ''
+Write-Host 'Anhaengen auf zwei Arten:'
+Write-Host '  1. Im Mailfenster in den Text klicken, Strg+V'
+Write-Host '  2. Oder die markierte Datei aus dem Explorer ins Mailfenster ziehen'
+
 
