@@ -131,6 +131,72 @@
       opacity:0; pointer-events:none; transition:opacity .2s, transform .2s; z-index:50; max-width:90%;
     }
     .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+
+    /* Four tabs no longer fit beside the title on a phone -- give them a row. */
+    @media (max-width:460px) {
+      .app-header { flex-wrap:wrap; }
+      .tabs { flex:1 1 100%; }
+      .tab { flex:1; padding:6px 8px; font-size:13px; }
+    }
+
+    /* ---------------------------- Invoice form --------------------------- */
+    .inv-input { width:100%; border-collapse:collapse; margin-bottom:14px; }
+    .inv-input th { font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); text-align:left; padding-bottom:6px; }
+    .inv-input th:not(:first-child), .inv-input td:not(:first-child) { width:88px; padding-left:8px; }
+    .inv-input td { padding-bottom:8px; font-size:14px; }
+    .inv-input input { padding:9px 10px; }
+
+    /* --------------------- Invoice sheet: screen + print ------------------ */
+    .sheet-preview { overflow-x:auto; padding-bottom:8px; }
+    .sheet {
+      width:210mm; min-height:297mm; margin:0 auto; background:#fff; color:#000;
+      font-family:Helvetica,Arial,sans-serif; display:flex; flex-direction:column;
+      box-shadow:0 1px 6px rgba(0,0,0,.15);
+    }
+    .sheet-body { flex:1; padding:18mm 20mm 6mm; font-size:10pt; line-height:1.35; }
+    .inv-top { display:flex; justify-content:space-between; gap:10mm; }
+    .inv-meta { text-align:right; white-space:nowrap; }
+    .inv-title { font-size:20pt; letter-spacing:.06em; margin:14mm 0 8mm; }
+    .inv-label { font-size:8pt; font-weight:700; letter-spacing:.08em; margin:0 0 1mm; }
+    .inv-to { margin:0 0 10mm; }
+    .inv-subject { margin:0 0 4mm; }
+    .inv-items { width:100%; border-collapse:collapse; }
+    .inv-items th, .inv-items td { padding:2mm 1mm; text-align:left; }
+    .inv-items .num { text-align:right; white-space:nowrap; }
+    .inv-items thead th { font-size:8pt; letter-spacing:.06em; border-bottom:.4mm solid #000; }
+    .inv-items tbody td { border-bottom:.1mm solid #bbb; }
+    .inv-items .sum td { border-top:.3mm solid #000; border-bottom:none; padding-top:3mm; }
+    .inv-items .grand td { font-weight:700; border-top:.2mm solid #000; border-bottom:none; }
+    .inv-foot { margin-top:12mm; font-size:9pt; }
+    .inv-foot p { margin:0 0 3mm; }
+
+    /* QR-bill: 210 x 105 mm, receipt 62 mm, payment part 148 mm. */
+    .qrbill { height:105mm; display:flex; border-top:.2mm dashed #000; color:#000; }
+    .qrbill p { margin:0; }
+    .qr-receipt { width:62mm; padding:5mm; border-right:.2mm dashed #000; display:flex; flex-direction:column; }
+    .qr-payment { width:148mm; padding:5mm; display:flex; gap:5mm; }
+    .qr-left { width:51mm; }
+    .qr-right { width:87mm; }
+    .qrbill .qr-title { font-size:11pt; font-weight:700; margin-bottom:3mm; }
+    .qrbill .qr-h-s { font-size:6pt; font-weight:700; line-height:9pt; margin-top:2mm; }
+    .qrbill .qr-v-s { font-size:8pt; line-height:9pt; }
+    .qrbill .qr-h-p { font-size:8pt; font-weight:700; line-height:11pt; margin-top:2mm; }
+    .qrbill .qr-v-p { font-size:10pt; line-height:11pt; }
+    .qr-amount { display:flex; gap:6mm; margin-top:2mm; }
+    .qrbill .qr-accept { font-size:6pt; font-weight:700; text-align:right; margin-top:auto; }
+    .qr-code { margin:5mm 0; }
+    .qr-code svg { display:block; width:46mm; height:46mm; }
+
+    @media print {
+      @page { size:A4; margin:0; }
+      html, body { background:#fff; margin:0; padding:0; }
+      .app-header, #view-loading, #view-auth, #view-log, #view-all, #view-stats,
+      #invoice-form, .toast { display:none !important; }
+      .container { max-width:none; margin:0; padding:0; }
+      #view-invoice { display:block !important; }
+      .sheet-preview { overflow:visible; padding:0; }
+      .sheet { width:210mm; height:297mm; margin:0; box-shadow:none; }
+    }
   </style>
 </head>
 <body>
@@ -140,6 +206,7 @@
       <button class="tab is-active" type="button" data-view="log" role="tab">Log</button>
       <button class="tab" type="button" data-view="all" role="tab">All</button>
       <button class="tab" type="button" data-view="stats" role="tab">Stats</button>
+      <button class="tab" type="button" data-view="invoice" role="tab">Invoice</button>
     </nav>
   </header>
 
@@ -225,6 +292,49 @@
         </div>
       </div>
     </section>
+    <!-- Invoice view: monthly bill for PGI, with a Swiss QR-bill payment part -->
+    <section id="view-invoice" class="view" hidden>
+      <div class="card" id="invoice-form">
+        <h2 class="card-title">Monatsrechnung</h2>
+        <div class="field">
+          <label for="inv-month">Monat</label>
+          <select id="inv-month"></select>
+        </div>
+        <div class="field">
+          <label for="inv-date">Rechnungsdatum</label>
+          <input id="inv-date" type="date">
+        </div>
+        <!-- Counts come from the bookings; F+V is not logged and is typed in -->
+        <table class="inv-input">
+          <thead>
+            <tr><th>Position</th><th>Anzahl</th><th>Preis</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><label for="inv-count-bigblue">Big Blue</label></td>
+              <td><input id="inv-count-bigblue" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-bigblue" type="number" min="0" step="0.05" value="100"></td>
+            </tr>
+            <tr>
+              <td><label for="inv-count-doubleair">Double Air</label></td>
+              <td><input id="inv-count-doubleair" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-doubleair" type="number" min="0" step="0.05" value="170"></td>
+            </tr>
+            <tr>
+              <td><label for="inv-count-fv">F+V</label></td>
+              <td><input id="inv-count-fv" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-fv" type="number" min="0" step="0.05" value="33"></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="form-actions">
+          <button id="inv-build" type="button" class="btn btn-primary">Rechnung erstellen</button>
+          <button id="inv-print" type="button" class="btn btn-secondary" hidden>Drucken / Als PDF speichern</button>
+        </div>
+      </div>
+      <div class="sheet-preview"><div id="inv-sheet"></div></div>
+    </section>
+
     <!-- Stats view: bookings per month and year, split by category -->
     <section id="view-stats" class="view" hidden>
       <!-- One card per year, rendered from the same snapshot as the list -->

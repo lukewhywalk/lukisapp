@@ -33,6 +33,7 @@ import {
   onSnapshot,
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
+import { initInvoice, setInvoiceEntries } from "./invoice.js";
 
 // The four flight categories. Each becomes a quick-book button and an option in
 // the edit dropdown. Add or rename here to change them everywhere.
@@ -392,7 +393,7 @@ function cancelEdit() {
 /* --------------------------------- Views --------------------------------- */
 
 function hideAllViews() {
-  for (const id of ["view-loading", "view-auth", "view-log", "view-all", "view-stats"]) {
+  for (const id of ["view-loading", "view-auth", "view-log", "view-all", "view-stats", "view-invoice"]) {
     document.getElementById(id).hidden = true;
   }
 }
@@ -427,6 +428,7 @@ function setView(view) {
   document.getElementById("view-log").hidden = view !== "log";
   document.getElementById("view-all").hidden = view !== "all";
   document.getElementById("view-stats").hidden = view !== "stats";
+  document.getElementById("view-invoice").hidden = view !== "invoice";
   for (const tab of document.querySelectorAll(".tab")) {
     tab.classList.toggle("is-active", tab.dataset.view === view);
   }
@@ -435,6 +437,7 @@ function setView(view) {
 
 function renderEntries(entries) {
   renderStats(entries);
+  setInvoiceEntries(entries);
 
   const sorted = [...entries].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)); // newest first
 
@@ -754,6 +757,7 @@ async function init() {
   renderCategoryOptions();
   renderGliderOptions();
   restoreGlider();
+  initInvoice();
   document.getElementById("glider").addEventListener("change", rememberGlider);
   document.getElementById("edit-form").addEventListener("submit", onEditSubmit);
   document.getElementById("edit-cancel").addEventListener("click", cancelEdit);
