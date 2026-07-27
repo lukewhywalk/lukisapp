@@ -36,6 +36,8 @@ const DEBTOR = {
 const VAT_PERMILLE = 81;
 const TERMS = "Fällig 15 Tage nach Erhalt";
 
+const MAIL_TO = "tom@paragliding-interlaken.ch";
+
 // Which booking categories roll up into which invoice line.
 const LINES = [
   { key: "bigblue", label: "Tandemflug Big Blue", categories: ["PGI", "VKPI"] },
@@ -361,13 +363,37 @@ function build() {
     document.getElementById("inv-sheet").innerHTML =
       '<p class="muted">Keine Positionen — mindestens eine Anzahl muss grösser als null sein.</p>';
     document.getElementById("inv-print").hidden = true;
+    document.getElementById("inv-mail").hidden = true;
     built = null;
     return;
   }
   built = invoice;
   document.getElementById("inv-sheet").innerHTML = sheetHtml(invoice);
   document.getElementById("inv-print").hidden = false;
+  document.getElementById("inv-mail").hidden = false;
   fitPreview();
+}
+
+function subjectFor(period) {
+  return `Rechnung Paragliding Lukas Hachen ${period}`;
+}
+
+// Opens the mail client with everything but the attachment filled in. mailto
+// cannot carry a file -- no browser permits it -- so the PDF still gets dragged
+// in by hand. tools/outlook-rechnung.ps1 does that part on this PC.
+function mail() {
+  if (!built) return;
+  const period = monthLabel(built.month);
+  const body = [
+    "Guten Tag Tom",
+    "",
+    `Im Anhang die Rechnung für die im ${period} durchgeführten Tandemflüge.`,
+    "",
+    "Freundliche Grüsse",
+    "Lukas Hachen",
+  ].join("\r\n");
+  window.location.href =
+    `mailto:${MAIL_TO}?subject=${encodeURIComponent(subjectFor(period))}&body=${encodeURIComponent(body)}`;
 }
 
 // "Save as PDF" takes its file name from the document title, so swap the title
@@ -375,7 +401,7 @@ function build() {
 function print() {
   if (!built) return;
   const original = document.title;
-  document.title = `Rechnung Paragliding Lukas Hachen ${monthLabel(built.month)}`;
+  document.title = subjectFor(monthLabel(built.month));
   window.addEventListener("afterprint", () => { document.title = original; }, { once: true });
   window.print();
 }
@@ -403,5 +429,6 @@ export function initInvoice() {
   document.getElementById("inv-month").addEventListener("change", syncCounts);
   document.getElementById("inv-build").addEventListener("click", build);
   document.getElementById("inv-print").addEventListener("click", print);
+  document.getElementById("inv-mail").addEventListener("click", mail);
   window.addEventListener("resize", fitPreview);
 }
