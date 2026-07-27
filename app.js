@@ -38,6 +38,12 @@ import { firebaseConfig } from "./firebase-config.js";
 // the edit dropdown. Add or rename here to change them everywhere.
 const CATEGORIES = ["PGI", "VKPI", "DA PGI", "DA VKPI"];
 
+// The gliders to choose from. The Log view remembers the last pick across
+// sessions, so this only needs touching when a wing joins or leaves the fleet.
+const GLIDERS = ["Takoo 6 2026"];
+
+const GLIDER_KEY = "lukis.glider"; // localStorage key for the remembered pick
+
 const APP_NAME = "Lukis";
 
 /* -------------------------------- Firebase ------------------------------- */
@@ -166,9 +172,15 @@ function csvCell(value) {
 
 // Builds the CSV: one row per booking, columns timestamp / category / remark.
 function buildCsv(entries) {
-  const rows = [["Saved at", "Category", "Remark", "Created by"]];
+  const rows = [["Saved at", "Category", "Glider", "Remark", "Created by"]];
   for (const e of entries) {
-    rows.push([formatTimestamp(e.savedAt), e.category || "", e.remark || "", e.createdByEmail || ""]);
+    rows.push([
+      formatTimestamp(e.savedAt),
+      e.category || "",
+      e.glider || "",
+      e.remark || "",
+      e.createdByEmail || "",
+    ]);
   }
   // Lead with a UTF-8 BOM and use CRLF line endings -- that combination is what
   // Excel opens most reliably (correct encoding and one row per line).
@@ -241,6 +253,48 @@ function renderCategoryOptions() {
   }
 }
 
+// Fills both glider dropdowns. The edit one gets a leading blank option so
+// bookings made before gliders existed keep an empty glider unless one is
+// picked deliberately.
+function renderGliderOptions() {
+  for (const [id, withBlank] of [["glider", false], ["edit-glider", true]]) {
+    const select = document.getElementById(id);
+    select.innerHTML = "";
+    if (withBlank) {
+      const blank = document.createElement("option");
+      blank.value = "";
+      blank.textContent = "—";
+      select.appendChild(blank);
+    }
+    for (const glider of GLIDERS) {
+      const option = document.createElement("option");
+      option.value = glider;
+      option.textContent = glider;
+      select.appendChild(option);
+    }
+  }
+}
+
+// A wing is flown for weeks at a time, so the Log view restores the last pick
+// instead of resetting after every booking.
+function restoreGlider() {
+  let stored = null;
+  try {
+    stored = localStorage.getItem(GLIDER_KEY);
+  } catch {
+    /* storage can be unavailable in private mode -- fall back to the default */
+  }
+  if (stored && GLIDERS.includes(stored)) document.getElementById("glider").value = stored;
+}
+
+function rememberGlider() {
+  try {
+    localStorage.setItem(GLIDER_KEY, document.getElementById("glider").value);
+  } catch {
+    /* best-effort only */
+  }
+}
+
 // Sets the booking date/time field to now.
 function resetBookingDatetime() {
   document.getElementById("book-datetime").value = localDatetimeValue(new Date());
@@ -256,6 +310,7 @@ async function bookCategory(category) {
     id: newId(),
     savedAt: dt ? new Date(dt).toISOString() : new Date().toISOString(),
     category,
+    glider: document.getElementById("glider").value,
     remark: remarkEl.value.trim(),
     createdByUid: currentUser.uid,
     createdByEmail: currentUser.email || "",
@@ -269,6 +324,7 @@ async function bookCategory(category) {
   }
   remarkEl.value = ""; // the remark is per-booking; clear it for the next one
   resetBookingDatetime(); // back to "now" for the next booking
+  // The glider is deliberately left as-is -- the next flight is on the same wing.
   toast(`${category} booked`);
 }
 
@@ -283,6 +339,8 @@ function startEdit(id) {
   editingId = id;
   document.getElementById("edit-datetime").value = localDatetimeValue(new Date(entry.savedAt));
   document.getElementById("edit-category").value = entry.category;
+  // An unknown or missing glider falls back to the blank option.
+  document.getElementById("edit-glider").value = GLIDERS.includes(entry.glider) ? entry.glider : "";
   document.getElementById("edit-remark").value = entry.remark || "";
   showEditCard();
   setView("log");
@@ -301,6 +359,7 @@ async function onEditSubmit(event) {
     ...existing,
     savedAt: dt ? new Date(dt).toISOString() : existing.savedAt,
     category: document.getElementById("edit-category").value,
+    glider: document.getElementById("edit-glider").value,
     remark: document.getElementById("edit-remark").value.trim(),
   };
   try {
@@ -454,7 +513,8 @@ function renderEntryRow(entry) {
 
   const cat = document.createElement("span");
   cat.className = "cat";
-  cat.textContent = entry.category || "—";
+  const label = entry.category || "—";
+  cat.textContent = entry.glider ? `${label} · ${entry.glider}` : label;
 
   const actions = document.createElement("div");
   actions.className = "entry-actions";
@@ -579,6 +639,9 @@ async function init() {
 
   renderCategoryButtons();
   renderCategoryOptions();
+  renderGliderOptions();
+  restoreGlider();
+  document.getElementById("glider").addEventListener("change", rememberGlider);
   document.getElementById("edit-form").addEventListener("submit", onEditSubmit);
   document.getElementById("edit-cancel").addEventListener("click", cancelEdit);
   document.getElementById("export-btn").addEventListener("click", onExport);
