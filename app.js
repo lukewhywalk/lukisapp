@@ -41,7 +41,10 @@ const CATEGORIES = ["PGI", "VKPI", "DA PGI", "DA VKPI"];
 
 // The gliders to choose from. The Log view remembers the last pick across
 // sessions, so this only needs touching when a wing joins or leaves the fleet.
-const GLIDERS = ["Takoo 6 2026"];
+// Der aktuelle Schirm steht zuoberst -- er ist die Vorauswahl bei einer frischen
+// Installation. Ältere Schirme bleiben in der Liste, damit nachgetragene Flüge
+// im Bearbeiten-Dialog eine passende Auswahl haben.
+const GLIDERS = ["Takoo 6 2026", "Bibeta6 2024"];
 
 // One hue per category. The two Big Blue products share the blue family and the
 // two Double Air ones the violet family, so the button is found by colour and
