@@ -145,8 +145,6 @@
     .entry-edit svg, .entry-del svg { width:18px; height:18px; display:block; }
     .entry-edit:active { color:var(--primary); background:var(--soft); }
     .entry-del:active { color:var(--danger); background:var(--soft); }
-    .stats-year { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:10px; }
-    .stats-year h2 { font-size:18px; margin:0; }
     .table-wrap { overflow-x:auto; }
     .stats-table { width:100%; border-collapse:collapse; font-size:14px; }
     .stats-table th, .stats-table td { padding:7px 5px; text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
@@ -165,15 +163,42 @@
     }
     .stats-table .total-row td { font-weight:700; border-top:2px solid var(--border); }
     .stats-table .zero { color:var(--muted); }
-    .stats-gliders { margin-top:12px; padding-top:10px; border-top:1px solid var(--border); }
-    .stats-gliders h3 {
-      font-size:11px; font-weight:700; color:var(--muted);
-      text-transform:uppercase; letter-spacing:.03em; margin:0 0 5px;
-    }
+    /* Overview: the all-time figure, then one bar per year */
+    .stat-hero { display:flex; align-items:baseline; gap:8px; }
+    .stat-hero .num { font-size:34px; font-weight:700; line-height:1; font-variant-numeric:tabular-nums; }
+    .stat-hero .lbl { color:var(--muted); font-size:15px; }
+    .stat-sub { color:var(--muted); font-size:13px; margin:4px 0 14px; }
+    .year-bars { display:flex; flex-direction:column; gap:4px; }
+    .year-bar { display:flex; align-items:center; gap:10px; font-size:14px; font-variant-numeric:tabular-nums; }
+    .year-bar .yr { width:38px; flex:none; color:var(--muted); }
+    .year-bar .track { flex:1; height:13px; background:var(--border); border-radius:3px; overflow:hidden; }
+    .year-bar .fill { height:100%; background:var(--primary); border-radius:3px; }
+    .year-bar .val { width:44px; text-align:right; flex:none; }
+
+    .record-row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; font-size:14px; }
+    .record-row + .record-row { border-top:1px solid var(--border); }
+    .record-row .k { color:var(--muted); }
+    .record-row .v { font-variant-numeric:tabular-nums; text-align:right; }
+
     .glider-row {
-      display:flex; justify-content:space-between; gap:12px; padding:3px 0;
-      font-size:14px; font-variant-numeric:tabular-nums;
+      display:flex; align-items:center; justify-content:space-between; gap:12px;
+      padding:7px 0; font-size:14px;
     }
+    .glider-row + .glider-row { border-top:1px solid var(--border); }
+    .glider-row .period { color:var(--muted); font-size:12px; font-variant-numeric:tabular-nums; }
+    .glider-row .val { font-variant-numeric:tabular-nums; flex:none; }
+
+    /* Year cards fold away -- seventeen open seasons is a lot of scrolling */
+    .year-header {
+      display:flex; align-items:center; gap:10px; width:100%; padding:0;
+      background:none; border:none; cursor:pointer; font-family:inherit;
+      text-align:left; color:var(--text);
+    }
+    .year-header h2 { font-size:18px; margin:0; }
+    .year-header .caret { font-size:10px; color:var(--muted); transition:transform .15s; }
+    .year-header[aria-expanded="false"] .caret { transform:rotate(-90deg); }
+    .year-header .cnt { margin-left:auto; color:var(--muted); font-variant-numeric:tabular-nums; }
+    .year-body { margin-top:12px; }
     .account { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
     .account .btn-ghost { width:auto; padding:8px 10px; }
     .muted { color:var(--muted); font-size:14px; }

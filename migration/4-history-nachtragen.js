@@ -1,5 +1,5 @@
 /**
- * Historische Monate nachtragen, von denen nur die Monatssummen bekannt sind.
+ * Monate nachtragen, von denen nur die Monatssummen bekannt sind.
  *
  * Anwendung:
  *   1. https://lukewhywalk.github.io/lukisapp/ im Desktop-Browser oeffnen
@@ -11,21 +11,26 @@
  * Zu den erzeugten Eintraegen: die Tagesverteilung innerhalb des Monats ist
  * nicht bekannt, also wird sie auch nicht erfunden. Alle Fluege eines Monats
  * bekommen den letzten Tag des Monats, 12:00 Uhr, und die Bemerkung
- * "Nachtrag" -- damit sind sie in der Liste als Sammeleintrag erkennbar und
- * verfaelschen keine Tagesstatistik. Fuer die Monats- und Jahreszahlen im
- * Stats-Tab und fuer die Rechnung ist das Datum innerhalb des Monats egal.
+ * "Nachtrag Monatssumme". Diese Bemerkung ist nicht bloss Zierde: der Stats-Tab
+ * erkennt daran, dass es kein echter Flugtag ist, und laesst solche Tage aus
+ * der Bestmarke "bester Tag" heraus. Monats- und Jahreszahlen stimmen.
  *
  * Die Dokument-IDs sind aus Monat, Kategorie und laufender Nummer gebildet.
  * Ein zweiter Durchlauf ueberschreibt deshalb dieselben Eintraege, statt
  * Duplikate anzulegen.
  */
 (async () => {
+  // glider: "" wo kein Schirm bekannt ist -- 2011 liegt weit vor dem ersten
+  // Schirmvermerk (Bibeta 6 2019, Mai 2019).
   const HISTORY = [
-    { month: "2026-02", counts: { PGI: 35, VKPI: 8 } },
+    { month: "2026-02", glider: "Takoo 6 2026", counts: { PGI: 35, VKPI: 8 } },
+    { month: "2011-05", glider: "", counts: { PGI: 4 } },
+    { month: "2011-06", glider: "", counts: { PGI: 27 } },
+    { month: "2011-07", glider: "", counts: { PGI: 175 } },
+    { month: "2011-08", glider: "", counts: { PGI: 35 } },
   ];
 
-  const GLIDER = "Takoo 6 2026";
-  const REMARK = "Nachtrag";
+  const REMARK = "Nachtrag Monatssumme";
 
   const SDK = "https://www.gstatic.com/firebasejs/11.3.1";
   const { getApps } = await import(`${SDK}/firebase-app.js`);
@@ -54,14 +59,14 @@
   };
 
   const planned = [];
-  for (const { month, counts } of HISTORY) {
-    // Schon vorhandene Eintraege in diesem Monat, die NICHT von diesem Skript
-    // stammen -- sonst wuerde der Nachtrag doppelt zaehlen.
+  for (const { month, glider, counts } of HISTORY) {
+    // Schon vorhandene Eintraege in diesem Monat, die NICHT von einem Nachtrag
+    // stammen -- sonst wuerde die Monatssumme doppelt zaehlen.
     const foreign = existing.filter((e) => monthOf(e.savedAt) === month && !e.id.startsWith("hist-"));
     if (foreign.length) {
       console.error(
         `${month}: ${foreign.length} bestehende Eintraege gefunden, die nicht aus einem Nachtrag stammen. ` +
-          `Abbruch -- bitte zuerst pruefen, ob die Monatssumme diese schon enthaelt.`
+          "Abbruch -- bitte zuerst pruefen, ob die Monatssumme diese schon enthaelt."
       );
       return;
     }
@@ -76,7 +81,7 @@
           id: `hist-${month}-${category.replace(/\s+/g, "_")}-${String(i).padStart(3, "0")}`,
           savedAt,
           category,
-          glider: GLIDER,
+          glider,
           remark: REMARK,
           createdByUid: user.uid,
           createdByEmail: user.email || "",
@@ -84,7 +89,8 @@
       }
     }
     const total = Object.values(counts).reduce((a, b) => a + b, 0);
-    console.log(`${month}: ${total} Fluege (${Object.entries(counts).map(([c, n]) => `${c} ${n}`).join(", ")}) auf ${savedAt.slice(0, 10)}`);
+    const detail = Object.entries(counts).map(([c, n]) => `${c} ${n}`).join(", ");
+    console.log(`${month}: ${total} Fluege (${detail}) auf ${savedAt.slice(0, 10)}`);
   }
 
   console.log(`Schreibe ${planned.length} Eintraege ...`);

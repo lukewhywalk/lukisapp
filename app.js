@@ -621,46 +621,91 @@ function renderEntryRow(entry) {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// The category columns: the configured ones first, then any category still
-// present in old bookings but since removed from CATEGORIES, so renaming a
-// category never makes past flights disappear from the totals.
-function statsColumns(entries) {
-  const extra = [];
-  for (const e of entries) {
-    const cat = e.category || "—";
-    if (!CATEGORIES.includes(cat) && !extra.includes(cat)) extra.push(cat);
-  }
-  return [...CATEGORIES, ...extra.sort()];
+// Which year cards are open. With seventeen seasons on file only the current
+// one starts expanded; the rest fold away and stay as the reader leaves them.
+const expandedYears = new Set();
+let expandedYearsInitialised = false;
+
+// Months backfilled from a total alone carry this remark. Their bookings all sit
+// on the last day of the month, which is not a day anyone flew -- so those days
+// are kept out of the best-day record. Month and year figures are unaffected,
+// and the marker is set by migration/4-history-nachtragen.js.
+const AGGREGATE_REMARK = "Nachtrag Monatssumme";
+
+// Only the categories a given year actually used, configured ones first. Years
+// before the split was introduced hold nothing but PGI, and three columns of
+// dashes made those cards wider and harder to read than the data warrants.
+function columnsFor(byCat) {
+  const present = [...byCat.keys()];
+  return [
+    ...CATEGORIES.filter((c) => present.includes(c)),
+    ...present.filter((c) => !CATEGORIES.includes(c)).sort(),
+  ];
 }
 
-// Counts bookings into year -> month -> category, carrying the row and year
-// totals alongside so rendering stays a plain lookup.
+// One pass over the bookings, producing everything the view needs: the
+// year/month/category breakdown, the per-day totals behind the records, and
+// each wing with the span it was flown over.
 function buildStats(entries) {
   const years = new Map();
+  const gliders = new Map();
+  const days = new Map();
+  const aggregateDays = new Set();
+  let total = 0;
+  let first = null;
+  let last = null;
+
   for (const entry of entries) {
     const d = new Date(entry.savedAt);
     if (Number.isNaN(d.getTime())) continue; // ignore an unparseable timestamp
-    const cat = entry.category || "—";
+    const category = entry.category || "—";
+    const glider = entry.glider || "—"; // bookings from before gliders existed
+    const day = formatDate(entry.savedAt);
 
     let year = years.get(d.getFullYear());
     if (!year) {
-      year = { months: new Map(), byCat: new Map(), byGlider: new Map(), total: 0 };
+      year = { months: new Map(), byCat: new Map(), total: 0 };
       years.set(d.getFullYear(), year);
     }
-    const glider = entry.glider || "—"; // bookings from before gliders existed
-    year.byGlider.set(glider, (year.byGlider.get(glider) || 0) + 1);
     let month = year.months.get(d.getMonth());
     if (!month) {
       month = { byCat: new Map(), total: 0 };
       year.months.set(d.getMonth(), month);
     }
 
-    month.byCat.set(cat, (month.byCat.get(cat) || 0) + 1);
+    month.byCat.set(category, (month.byCat.get(category) || 0) + 1);
     month.total += 1;
-    year.byCat.set(cat, (year.byCat.get(cat) || 0) + 1);
+    year.byCat.set(category, (year.byCat.get(category) || 0) + 1);
     year.total += 1;
+
+    let wing = gliders.get(glider);
+    if (!wing) {
+      wing = { count: 0, first: day, last: day };
+      gliders.set(glider, wing);
+    }
+    wing.count += 1;
+    if (day < wing.first) wing.first = day;
+    if (day > wing.last) wing.last = day;
+
+    days.set(day, (days.get(day) || 0) + 1);
+    if (entry.remark === AGGREGATE_REMARK) aggregateDays.add(day);
+    total += 1;
+    if (first === null || day < first) first = day;
+    if (last === null || day > last) last = day;
   }
-  return years;
+
+  // Days actually flown, and the bookings on them. Backfilled month totals are
+  // left out of both, otherwise a month parked on one date would read as a
+  // single enormous flying day and drag the average with it.
+  let flyingDays = 0;
+  let flyingDayTotal = 0;
+  for (const [day, count] of days) {
+    if (aggregateDays.has(day)) continue;
+    flyingDays += 1;
+    flyingDayTotal += count;
+  }
+
+  return { years, gliders, days, aggregateDays, flyingDays, flyingDayTotal, total, first, last };
 }
 
 function renderStats(entries) {
@@ -669,63 +714,158 @@ function renderStats(entries) {
   document.getElementById("stats-empty").style.display = entries.length ? "none" : "block";
   if (!entries.length) return;
 
-  const columns = statsColumns(entries);
-  const years = buildStats(entries);
-  for (const year of [...years.keys()].sort((a, b) => b - a)) {
-    host.appendChild(renderYearCard(year, years.get(year), columns));
+  const stats = buildStats(entries);
+  const years = [...stats.years.keys()].sort((a, b) => b - a);
+  if (!expandedYearsInitialised) {
+    expandedYears.add(years[0]);
+    expandedYearsInitialised = true;
   }
+
+  host.appendChild(renderOverview(stats, years));
+  host.appendChild(renderRecords(stats));
+  host.appendChild(renderGliderCareer(stats.gliders));
+  for (const year of years) host.appendChild(renderYearCard(year, stats.years.get(year)));
 }
 
-// One card per year: a row per month that has bookings (newest first, so the
-// current month is at the top), then the year total.
-function renderYearCard(year, data, columns) {
+// The headline: everything at once, then a bar per year. Without this the page
+// opened straight into sixteen collapsed cards and never named a total.
+function renderOverview(stats, years) {
   const card = el("div", "card");
 
-  const head = el("div", "stats-year");
-  const total = `${data.total} ${data.total === 1 ? "booking" : "bookings"}`;
-  head.append(el("h2", null, String(year)), el("span", "muted", total));
-  card.appendChild(head);
+  const hero = el("div", "stat-hero");
+  hero.append(
+    el("span", "num", String(stats.total)),
+    el("span", "lbl", stats.total === 1 ? "booking" : "bookings")
+  );
+  card.appendChild(hero);
+  card.appendChild(
+    el("p", "stat-sub", `${stats.first} to ${stats.last} · ${stats.flyingDays} flying days`)
+  );
 
-  const table = el("table", "stats-table");
+  const busiest = Math.max(...years.map((y) => stats.years.get(y).total));
+  const bars = el("div", "year-bars");
+  for (const year of years) {
+    const count = stats.years.get(year).total;
+    const fill = el("div", "fill");
+    fill.style.width = `${Math.max(2, Math.round((count / busiest) * 100))}%`;
+    const track = el("div", "track");
+    track.appendChild(fill);
+    const row = el("div", "year-bar");
+    row.append(el("span", "yr", String(year)), track, el("span", "val", String(count)));
+    bars.appendChild(row);
+  }
+  card.appendChild(bars);
+  return card;
+}
+
+function renderRecords(stats) {
+  let bestDay = null;
+  for (const [day, count] of stats.days) {
+    if (stats.aggregateDays.has(day)) continue; // a month total, not a day flown
+    if (!bestDay || count > bestDay.count) bestDay = { day, count };
+  }
+  let bestMonth = null;
+  let bestYear = null;
+  for (const [year, data] of stats.years) {
+    if (!bestYear || data.total > bestYear.total) bestYear = { year, total: data.total };
+    for (const [month, m] of data.months) {
+      if (!bestMonth || m.total > bestMonth.total) bestMonth = { year, month, total: m.total };
+    }
+  }
+
+  const card = el("div", "card");
+  card.appendChild(el("h2", "card-title", "Records"));
+  const rows = [
+    ["Best day", bestDay ? `${bestDay.day} · ${bestDay.count}` : "–"],
+    ["Best month", `${MONTHS[bestMonth.month]} ${bestMonth.year} · ${bestMonth.total}`],
+    ["Best year", `${bestYear.year} · ${bestYear.total}`],
+    ["Per flying day", stats.flyingDays ? (stats.flyingDayTotal / stats.flyingDays).toFixed(1) : "–"],
+    ["First booking", stats.first],
+  ];
+  for (const [label, value] of rows) {
+    const row = el("div", "record-row");
+    row.append(el("span", "k", label), el("span", "v", value));
+    card.appendChild(row);
+  }
+  return card;
+}
+
+// Wings as a career rather than repeated under every year: which one, over what
+// span, how many flights. Newest last flight first.
+function renderGliderCareer(gliders) {
+  const card = el("div", "card");
+  card.appendChild(el("h2", "card-title", "Gliders"));
+  const sorted = [...gliders.entries()].sort((a, b) => (a[1].last < b[1].last ? 1 : -1));
+  for (const [name, data] of sorted) {
+    const left = el("div");
+    left.append(el("div", null, name), el("div", "period", `${data.first} – ${data.last}`));
+    const row = el("div", "glider-row");
+    row.append(left, el("span", "val", String(data.count)));
+    card.appendChild(row);
+  }
+  return card;
+}
+
+function renderYearCard(year, data) {
+  const expanded = expandedYears.has(year);
+  const card = el("div", "card");
+
+  const header = document.createElement("button");
+  header.type = "button";
+  header.className = "year-header";
+  header.setAttribute("aria-expanded", expanded ? "true" : "false");
+  header.append(
+    el("span", "caret", "▾"),
+    el("h2", null, String(year)),
+    el("span", "cnt", String(data.total))
+  );
+
+  const body = el("div", "year-body");
+  body.hidden = !expanded;
+  body.appendChild(yearTable(year, data));
+
+  header.addEventListener("click", () => {
+    const willExpand = body.hidden;
+    body.hidden = !willExpand;
+    header.setAttribute("aria-expanded", willExpand ? "true" : "false");
+    if (willExpand) expandedYears.add(year);
+    else expandedYears.delete(year);
+  });
+
+  card.append(header, body);
+  return card;
+}
+
+function yearTable(year, data) {
+  const columns = columnsFor(data.byCat);
 
   const headRow = el("tr");
   headRow.appendChild(el("th", null, "Month"));
-  for (const column of columns) headRow.appendChild(el("th", null, column));
+  for (const column of columns) headRow.appendChild(el("th", "num", column));
   headRow.appendChild(el("th", "col-total", "Total"));
   const thead = el("thead");
   thead.appendChild(headRow);
-  table.appendChild(thead);
 
-  const tbody = el("tbody");
+  // The running year reads newest first, so the current month is on top. A
+  // finished season reads in order, the way its curve actually ran.
+  const running = year === new Date().getFullYear();
+  const months = [...data.months.keys()].sort((a, b) => (running ? b - a : a - b));
+
   // Bars are scaled to the busiest month of this year, so each card reads on its
   // own terms instead of being flattened by an exceptional season elsewhere.
   const busiest = Math.max(...[...data.months.values()].map((m) => m.total));
-  for (const month of [...data.months.keys()].sort((a, b) => b - a)) {
+  const tbody = el("tbody");
+  for (const month of months) {
     const stats = data.months.get(month);
     tbody.appendChild(statsRow(MONTHS[month], stats, columns, null, stats.total / busiest));
   }
   tbody.appendChild(statsRow("Total", data, columns, "total-row", 0));
-  table.appendChild(tbody);
 
+  const table = el("table", "stats-table");
+  table.append(thead, tbody);
   const wrap = el("div", "table-wrap");
   wrap.appendChild(table);
-  card.appendChild(wrap);
-  card.appendChild(renderGliderTally(data.byGlider));
-  return card;
-}
-
-// Flights per wing for the year, busiest first. A month breakdown would be
-// mostly empty columns -- a wing is flown for a whole season at a time.
-function renderGliderTally(byGlider) {
-  const block = el("div", "stats-gliders");
-  block.appendChild(el("h3", null, "Gliders"));
-  const sorted = [...byGlider.entries()].sort((a, b) => b[1] - a[1]);
-  for (const [glider, count] of sorted) {
-    const row = el("div", "glider-row");
-    row.append(el("span", null, glider), el("span", null, count));
-    block.appendChild(row);
-  }
-  return block;
+  return wrap;
 }
 
 // One table row. A zero is drawn as a dash so the filled cells stand out.
