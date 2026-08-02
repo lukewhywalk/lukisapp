@@ -22,7 +22,9 @@
  * Duplikate anzulegen.
  */
 (async () => {
-  const GLIDER = "Bibeta6 2024";
+  // Vereinheitlichte Schreibweise -- die Quelle 2024 nennt denselben Schirm
+  // "Beta 6 24", die Quelle 2025 "Bibeta6 2024".
+  const GLIDER = "Bibeta 6 2024";
   const REMARK = "Nachtrag";
 
   // [Datum, { Kategorie: Anzahl }] -- 58 Flugtage, 428 Fluege

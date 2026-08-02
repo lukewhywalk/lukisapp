@@ -44,7 +44,13 @@ const CATEGORIES = ["PGI", "VKPI", "DA PGI", "DA VKPI"];
 // Der aktuelle Schirm steht zuoberst -- er ist die Vorauswahl bei einer frischen
 // Installation. Ältere Schirme bleiben in der Liste, damit nachgetragene Flüge
 // im Bearbeiten-Dialog eine passende Auswahl haben.
-const GLIDERS = ["Takoo 6 2026", "Bibeta6 2024"];
+const GLIDERS = [
+  "Takoo 6 2026",
+  "Bibeta 6 2024",
+  "Bibeta 6 2022",
+  "Bibeta 6 2019",
+  "Bibeta 6 2018",
+];
 
 // One hue per category. The two Big Blue products share the blue family and the
 // two Double Air ones the violet family, so the button is found by colour and
