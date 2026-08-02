@@ -652,17 +652,26 @@ function buildStats(entries) {
 
     let year = years.get(d.getFullYear());
     if (!year) {
-      year = { months: new Map(), total: 0 };
+      year = { months: new Map(), total: 0, flown: 0, days: new Set() };
       years.set(d.getFullYear(), year);
     }
     let month = year.months.get(d.getMonth());
     if (!month) {
-      month = { total: 0 };
+      month = { total: 0, flown: 0, days: new Set() };
       year.months.set(d.getMonth(), month);
     }
 
     month.total += 1;
     year.total += 1;
+    // The per-day average is built only from days actually flown. A month known
+    // just as a total sits on one substitute date, which would otherwise read as
+    // a single day with a hundred flights on it.
+    if (entry.remark !== AGGREGATE_REMARK) {
+      month.flown += 1;
+      month.days.add(day);
+      year.flown += 1;
+      year.days.add(day);
+    }
 
     let wing = gliders.get(glider);
     if (!wing) {
@@ -765,7 +774,6 @@ function renderRecords(stats) {
     ["Best day", bestDay ? `${bestDay.day} · ${bestDay.count}` : "–"],
     ["Best month", `${MONTHS[bestMonth.month]} ${bestMonth.year} · ${bestMonth.total}`],
     ["Best year", `${bestYear.year} · ${bestYear.total}`],
-    ["Per flying day", stats.flyingDays ? (stats.flyingDayTotal / stats.flyingDays).toFixed(1) : "–"],
     ["First flight", stats.first],
   ];
   for (const [label, value] of rows) {
@@ -824,7 +832,11 @@ function renderYearCard(year, data) {
 
 function yearTable(year, data) {
   const headRow = el("tr");
-  headRow.append(el("th", null, "Month"), el("th", "col-total", "Flights"));
+  headRow.append(
+    el("th", null, "Month"),
+    el("th", "col-total", "Flights"),
+    el("th", "col-avg", "Avg/day")
+  );
   const thead = el("thead");
   thead.appendChild(headRow);
 
@@ -839,9 +851,9 @@ function yearTable(year, data) {
   const tbody = el("tbody");
   for (const month of months) {
     const stats = data.months.get(month);
-    tbody.appendChild(statsRow(MONTHS[month], stats.total, null, stats.total / busiest));
+    tbody.appendChild(statsRow(MONTHS[month], stats, null, stats.total / busiest));
   }
-  tbody.appendChild(statsRow("Total", data.total, "total-row", 0));
+  tbody.appendChild(statsRow("Total", data, "total-row", 0));
 
   const table = el("table", "stats-table");
   table.append(thead, tbody);
@@ -850,13 +862,16 @@ function yearTable(year, data) {
   return wrap;
 }
 
-// One table row: the label and the count, with a bar behind the number scaled
-// to the busiest month of that year.
-function statsRow(label, count, className, ratio) {
+// One table row: the label, the count with a bar behind it scaled to the
+// busiest month of that year, and the average per day flown. A stretch known
+// only as a month total has no day count, so it shows a dash rather than a
+// number that would pretend to a precision the source never had.
+function statsRow(label, stats, className, ratio) {
   const row = el("tr", className);
-  const total = el("td", "col-total", count);
+  const total = el("td", "col-total", stats.total);
   if (ratio > 0) total.style.setProperty("--bar", `${Math.round(ratio * 100)}%`);
-  row.append(el("td", null, label), total);
+  const average = stats.days.size ? (stats.flown / stats.days.size).toFixed(1) : "–";
+  row.append(el("td", null, label), total, el("td", "col-avg", average));
   return row;
 }
 
