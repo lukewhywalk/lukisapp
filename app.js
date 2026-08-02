@@ -632,28 +632,6 @@ let expandedYearsInitialised = false;
 // and the marker is set by migration/4-history-nachtragen.js.
 const AGGREGATE_REMARK = "Nachtrag Monatssumme";
 
-// The year tables show plain monthly totals by default and reveal the category
-// split on request: across seventeen seasons the split is the exception, not
-// what you come to the page for. The choice is remembered.
-const STATS_COLUMNS_KEY = "lukis.stats.columns";
-let showCategories = false;
-try {
-  showCategories = localStorage.getItem(STATS_COLUMNS_KEY) === "1";
-} catch {
-  /* storage can be unavailable in private mode -- start collapsed */
-}
-
-// Only the categories a given year actually used, configured ones first. Years
-// before the split was introduced hold nothing but PGI, and three columns of
-// dashes made those cards wider and harder to read than the data warrants.
-function columnsFor(byCat) {
-  const present = [...byCat.keys()];
-  return [
-    ...CATEGORIES.filter((c) => present.includes(c)),
-    ...present.filter((c) => !CATEGORIES.includes(c)).sort(),
-  ];
-}
-
 // One pass over the bookings, producing everything the view needs: the
 // year/month/category breakdown, the per-day totals behind the records, and
 // each wing with the span it was flown over.
@@ -669,24 +647,21 @@ function buildStats(entries) {
   for (const entry of entries) {
     const d = new Date(entry.savedAt);
     if (Number.isNaN(d.getTime())) continue; // ignore an unparseable timestamp
-    const category = entry.category || "—";
     const glider = entry.glider || "—"; // bookings from before gliders existed
     const day = formatDate(entry.savedAt);
 
     let year = years.get(d.getFullYear());
     if (!year) {
-      year = { months: new Map(), byCat: new Map(), total: 0 };
+      year = { months: new Map(), total: 0 };
       years.set(d.getFullYear(), year);
     }
     let month = year.months.get(d.getMonth());
     if (!month) {
-      month = { byCat: new Map(), total: 0 };
+      month = { total: 0 };
       year.months.set(d.getMonth(), month);
     }
 
-    month.byCat.set(category, (month.byCat.get(category) || 0) + 1);
     month.total += 1;
-    year.byCat.set(category, (year.byCat.get(category) || 0) + 1);
     year.total += 1;
 
     let wing = gliders.get(glider);
@@ -766,21 +741,6 @@ function renderOverview(stats, years) {
     bars.appendChild(row);
   }
   card.appendChild(bars);
-
-  const toggle = document.createElement("button");
-  toggle.type = "button";
-  toggle.className = "btn btn-secondary stats-toggle";
-  toggle.textContent = showCategories ? "Hide categories" : "Show categories";
-  toggle.addEventListener("click", () => {
-    showCategories = !showCategories;
-    try {
-      localStorage.setItem(STATS_COLUMNS_KEY, showCategories ? "1" : "0");
-    } catch {
-      /* best-effort only */
-    }
-    renderStats(entriesCache);
-  });
-  card.appendChild(toggle);
   return card;
 }
 
@@ -863,12 +823,8 @@ function renderYearCard(year, data) {
 }
 
 function yearTable(year, data) {
-  const columns = showCategories ? columnsFor(data.byCat) : [];
-
   const headRow = el("tr");
-  headRow.appendChild(el("th", null, "Month"));
-  for (const column of columns) headRow.appendChild(el("th", "num", column));
-  headRow.appendChild(el("th", "col-total", "Total"));
+  headRow.append(el("th", null, "Month"), el("th", "col-total", "Flights"));
   const thead = el("thead");
   thead.appendChild(headRow);
 
@@ -883,9 +839,9 @@ function yearTable(year, data) {
   const tbody = el("tbody");
   for (const month of months) {
     const stats = data.months.get(month);
-    tbody.appendChild(statsRow(MONTHS[month], stats, columns, null, stats.total / busiest));
+    tbody.appendChild(statsRow(MONTHS[month], stats.total, null, stats.total / busiest));
   }
-  tbody.appendChild(statsRow("Total", data, columns, "total-row", 0));
+  tbody.appendChild(statsRow("Total", data.total, "total-row", 0));
 
   const table = el("table", "stats-table");
   table.append(thead, tbody);
@@ -894,17 +850,13 @@ function yearTable(year, data) {
   return wrap;
 }
 
-// One table row. A zero is drawn as a dash so the filled cells stand out.
-function statsRow(label, counts, columns, className, ratio) {
+// One table row: the label and the count, with a bar behind the number scaled
+// to the busiest month of that year.
+function statsRow(label, count, className, ratio) {
   const row = el("tr", className);
-  row.appendChild(el("td", null, label));
-  for (const column of columns) {
-    const n = counts.byCat.get(column) || 0;
-    row.appendChild(el("td", n ? null : "zero", n || "–"));
-  }
-  const total = el("td", "col-total", counts.total);
+  const total = el("td", "col-total", count);
   if (ratio > 0) total.style.setProperty("--bar", `${Math.round(ratio * 100)}%`);
-  row.appendChild(total);
+  row.append(el("td", null, label), total);
   return row;
 }
 
