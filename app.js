@@ -491,7 +491,7 @@ function renderEntries(entries) {
   const sorted = [...entries].sort((a, b) => (a.savedAt < b.savedAt ? 1 : -1)); // newest first
 
   document.getElementById("count").textContent = sorted.length
-    ? `${sorted.length} ${sorted.length === 1 ? "booking" : "bookings"}`
+    ? `${sorted.length} ${sorted.length === 1 ? "flight" : "flights"}`
     : "";
 
   const list = document.getElementById("entry-list");
@@ -597,14 +597,14 @@ function renderEntryRow(entry) {
   const edit = document.createElement("button");
   edit.className = "entry-edit";
   edit.type = "button";
-  edit.setAttribute("aria-label", "Edit booking");
+  edit.setAttribute("aria-label", "Edit flight");
   edit.innerHTML = ICON_EDIT;
   edit.addEventListener("click", () => startEdit(entry.id));
 
   const del = document.createElement("button");
   del.className = "entry-del";
   del.type = "button";
-  del.setAttribute("aria-label", "Delete booking");
+  del.setAttribute("aria-label", "Delete flight");
   del.innerHTML = ICON_DELETE;
   del.addEventListener("click", () => onDelete(entry.id));
 
@@ -631,6 +631,17 @@ let expandedYearsInitialised = false;
 // are kept out of the best-day record. Month and year figures are unaffected,
 // and the marker is set by migration/4-history-nachtragen.js.
 const AGGREGATE_REMARK = "Nachtrag Monatssumme";
+
+// The year tables show plain monthly totals by default and reveal the category
+// split on request: across seventeen seasons the split is the exception, not
+// what you come to the page for. The choice is remembered.
+const STATS_COLUMNS_KEY = "lukis.stats.columns";
+let showCategories = false;
+try {
+  showCategories = localStorage.getItem(STATS_COLUMNS_KEY) === "1";
+} catch {
+  /* storage can be unavailable in private mode -- start collapsed */
+}
 
 // Only the categories a given year actually used, configured ones first. Years
 // before the split was introduced hold nothing but PGI, and three columns of
@@ -735,7 +746,7 @@ function renderOverview(stats, years) {
   const hero = el("div", "stat-hero");
   hero.append(
     el("span", "num", String(stats.total)),
-    el("span", "lbl", stats.total === 1 ? "booking" : "bookings")
+    el("span", "lbl", stats.total === 1 ? "flight" : "flights")
   );
   card.appendChild(hero);
   card.appendChild(
@@ -755,6 +766,21 @@ function renderOverview(stats, years) {
     bars.appendChild(row);
   }
   card.appendChild(bars);
+
+  const toggle = document.createElement("button");
+  toggle.type = "button";
+  toggle.className = "btn btn-secondary stats-toggle";
+  toggle.textContent = showCategories ? "Hide categories" : "Show categories";
+  toggle.addEventListener("click", () => {
+    showCategories = !showCategories;
+    try {
+      localStorage.setItem(STATS_COLUMNS_KEY, showCategories ? "1" : "0");
+    } catch {
+      /* best-effort only */
+    }
+    renderStats(entriesCache);
+  });
+  card.appendChild(toggle);
   return card;
 }
 
@@ -780,7 +806,7 @@ function renderRecords(stats) {
     ["Best month", `${MONTHS[bestMonth.month]} ${bestMonth.year} · ${bestMonth.total}`],
     ["Best year", `${bestYear.year} · ${bestYear.total}`],
     ["Per flying day", stats.flyingDays ? (stats.flyingDayTotal / stats.flyingDays).toFixed(1) : "–"],
-    ["First booking", stats.first],
+    ["First flight", stats.first],
   ];
   for (const [label, value] of rows) {
     const row = el("div", "record-row");
@@ -837,7 +863,7 @@ function renderYearCard(year, data) {
 }
 
 function yearTable(year, data) {
-  const columns = columnsFor(data.byCat);
+  const columns = showCategories ? columnsFor(data.byCat) : [];
 
   const headRow = el("tr");
   headRow.appendChild(el("th", null, "Month"));
@@ -902,7 +928,7 @@ async function onClear() {
     toast("Nothing to clear.");
     return;
   }
-  if (!confirm(`Delete all ${entriesCache.length} bookings? This cannot be undone.`)) return;
+  if (!confirm(`Delete all ${entriesCache.length} flights? This cannot be undone.`)) return;
   try {
     await Promise.all(entriesCache.map((e) => deleteEntry(currentUser.uid, e.id)));
   } catch (err) {
@@ -911,7 +937,7 @@ async function onClear() {
     return;
   }
   if (editingId) cancelEdit();
-  toast("All bookings deleted");
+  toast("All flights deleted");
 }
 
 async function onExport() {

@@ -175,6 +175,7 @@
     .year-bar .fill { height:100%; background:var(--primary); border-radius:3px; }
     .year-bar .val { width:44px; text-align:right; flex:none; }
 
+    .stats-toggle { width:100%; margin-top:14px; }
     .record-row { display:flex; justify-content:space-between; gap:12px; padding:7px 0; font-size:14px; }
     .record-row + .record-row { border-top:1px solid var(--border); }
     .record-row .k { color:var(--muted); }
@@ -330,7 +331,7 @@
     <section id="view-auth" class="view" hidden>
       <div class="card">
         <h2 class="card-title">Sign in</h2>
-        <p class="muted">Sign in with your Google account to sync your bookings across devices.</p>
+        <p class="muted">Sign in with your Google account to sync your flights across devices.</p>
         <button type="button" id="google-signin-btn" class="btn btn-primary">Sign in with Google</button>
         <p id="signin-status" class="muted" aria-live="polite"></p>
       </div>
@@ -350,7 +351,7 @@
         </div>
         <div class="field">
           <label for="remark">Remark</label>
-          <input id="remark" type="text" autocomplete="off" placeholder="Optional, applied to the next booking">
+          <input id="remark" type="text" autocomplete="off" placeholder="Optional, applied to the next flight">
         </div>
         <p id="today-total" class="today-total"></p>
         <!-- Category buttons are rendered from CATEGORIES in app.js -->
@@ -359,7 +360,7 @@
 
       <!-- Edit an existing booking -->
       <div class="card" id="editcard" hidden>
-        <h2 class="card-title">Edit booking</h2>
+        <h2 class="card-title">Edit flight</h2>
         <form id="edit-form">
           <div class="field">
             <label for="edit-datetime">Date &amp; time</label>
@@ -450,7 +451,7 @@
       <div class="sheet-preview"><div id="inv-sheet"></div></div>
     </section>
 
-    <!-- Stats view: bookings per month and year, split by category -->
+    <!-- Stats view: flights per month and year, category split on request -->
     <section id="view-stats" class="view" hidden>
       <!-- One card per year, rendered from the same snapshot as the list -->
       <div id="stats-body"></div>
