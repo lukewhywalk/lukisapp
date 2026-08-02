@@ -217,6 +217,19 @@
       .tab { flex:1; padding:6px 8px; font-size:13px; }
     }
 
+    /* --------------------- Invoice party data (settings) ----------------- */
+    #inv-settings > summary { cursor:pointer; list-style:none; }
+    #inv-settings > summary::-webkit-details-marker { display:none; }
+    #inv-settings > summary::after { content:"▾"; float:right; font-size:12px; color:var(--muted); }
+    #inv-settings[open] > summary::after { content:"▴"; }
+    .inv-set-group {
+      font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase;
+      letter-spacing:.03em; margin:16px 0 8px;
+    }
+    .inv-set-row { display:flex; gap:10px; }
+    .inv-set-row .field { flex:1; }
+    .inv-set-row .field.narrow { flex:0 0 88px; }
+
     /* ---------------------------- Invoice form --------------------------- */
     .inv-input { width:100%; border-collapse:collapse; margin-bottom:14px; }
     .inv-input th { font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:var(--muted); text-align:left; padding-bottom:6px; }
@@ -405,6 +418,58 @@
     </section>
     <!-- Invoice view: monthly bill for PGI, with a Swiss QR-bill payment part -->
     <section id="view-invoice" class="view" hidden>
+      <!-- Party data lives in Firestore, not in the source: this page is public -->
+      <details class="card" id="inv-settings">
+        <summary class="card-title">Rechnungsdaten</summary>
+        <p id="inv-set-status" class="muted" style="margin:6px 0 12px; font-size:13px;"></p>
+
+        <p class="inv-set-group">Rechnungssteller</p>
+        <div class="field"><label for="inv-set-creditor-name">Name</label>
+          <input id="inv-set-creditor-name" type="text" autocomplete="off"></div>
+        <div class="inv-set-row">
+          <div class="field"><label for="inv-set-creditor-street">Strasse</label>
+            <input id="inv-set-creditor-street" type="text" autocomplete="off"></div>
+          <div class="field narrow"><label for="inv-set-creditor-building">Nr.</label>
+            <input id="inv-set-creditor-building" type="text" autocomplete="off"></div>
+        </div>
+        <div class="inv-set-row">
+          <div class="field narrow"><label for="inv-set-creditor-zip">PLZ</label>
+            <input id="inv-set-creditor-zip" type="text" autocomplete="off"></div>
+          <div class="field"><label for="inv-set-creditor-city">Ort</label>
+            <input id="inv-set-creditor-city" type="text" autocomplete="off"></div>
+        </div>
+        <div class="field"><label for="inv-set-creditor-iban">IBAN</label>
+          <input id="inv-set-creditor-iban" type="text" autocomplete="off" placeholder="CH00 0000 0000 0000 0000 0"></div>
+        <div class="field"><label for="inv-set-creditor-vat">MWST-Nummer (optional)</label>
+          <input id="inv-set-creditor-vat" type="text" autocomplete="off" placeholder="CHE-000.000.000"></div>
+
+        <p class="inv-set-group">Rechnungsempfänger</p>
+        <div class="field"><label for="inv-set-debtor-name">Name</label>
+          <input id="inv-set-debtor-name" type="text" autocomplete="off"></div>
+        <div class="inv-set-row">
+          <div class="field"><label for="inv-set-debtor-street">Strasse</label>
+            <input id="inv-set-debtor-street" type="text" autocomplete="off"></div>
+          <div class="field narrow"><label for="inv-set-debtor-building">Nr.</label>
+            <input id="inv-set-debtor-building" type="text" autocomplete="off"></div>
+        </div>
+        <div class="inv-set-row">
+          <div class="field narrow"><label for="inv-set-debtor-zip">PLZ</label>
+            <input id="inv-set-debtor-zip" type="text" autocomplete="off"></div>
+          <div class="field"><label for="inv-set-debtor-city">Ort</label>
+            <input id="inv-set-debtor-city" type="text" autocomplete="off"></div>
+        </div>
+
+        <p class="inv-set-group">Weiteres</p>
+        <div class="field"><label for="inv-set-terms">Zahlungsbedingungen</label>
+          <input id="inv-set-terms" type="text" autocomplete="off" placeholder="Fällig 15 Tage nach Erhalt"></div>
+        <div class="field"><label for="inv-set-mail-to">Mailadresse (optional)</label>
+          <input id="inv-set-mail-to" type="email" autocomplete="off"></div>
+        <div class="field"><label for="inv-set-mail-greeting">Anrede in der Mail (optional)</label>
+          <input id="inv-set-mail-greeting" type="text" autocomplete="off" placeholder="Guten Tag"></div>
+
+        <button id="inv-set-save" type="button" class="btn btn-primary">Rechnungsdaten speichern</button>
+      </details>
+
       <div class="card" id="invoice-form">
         <h2 class="card-title">Monatsrechnung</h2>
         <div class="field">

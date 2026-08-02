@@ -33,7 +33,7 @@ import {
   onSnapshot,
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { initInvoice, setInvoiceEntries } from "./invoice.js";
+import { initInvoice, setInvoiceEntries, setInvoiceSettings } from "./invoice.js";
 
 // The four flight categories. Each becomes a quick-book button and an option in
 // the edit dropdown. Add or rename here to change them everywhere.
@@ -80,6 +80,7 @@ const db = initializeFirestore(app, {
 let currentUser = null;
 let entriesCache = []; // latest snapshot of the signed-in user's bookings
 let entriesUnsub = null; // active Firestore listener teardown
+let settingsUnsub = null; // ditto, for the invoice settings document
 let editingId = null; // id of the booking being edited, or null
 const expandedDates = new Set(); // which All-view day groups are expanded
 let expandInitialized = false; // default-expand today only on the first render
@@ -122,6 +123,38 @@ function unsubscribeEntries() {
   }
   entriesCache = [];
   renderEntries(entriesCache);
+}
+
+// The invoice party data -- IBAN, addresses, the client's mail address. Kept out
+// of the source because that is served publicly, and behind the same sign-in as
+// the flights.
+function settingsDoc(uid) {
+  return doc(db, "users", uid, "settings", "invoice");
+}
+
+function subscribeSettings(uid) {
+  unsubscribeSettings();
+  settingsUnsub = onSnapshot(
+    settingsDoc(uid),
+    (snap) => setInvoiceSettings(snap.exists() ? snap.data() : null),
+    (err) => {
+      console.error("Settings listener failed", err);
+      toast("Could not load invoice details.");
+    }
+  );
+}
+
+function unsubscribeSettings() {
+  if (settingsUnsub) {
+    settingsUnsub();
+    settingsUnsub = null;
+  }
+  setInvoiceSettings(null);
+}
+
+async function saveInvoiceSettings(values) {
+  if (!currentUser) throw new Error("Not signed in");
+  await setDoc(settingsDoc(currentUser.uid), values);
 }
 
 /* ---------------------------------- Auth --------------------------------- */
@@ -170,8 +203,10 @@ function handleAuthState(user) {
   if (user) {
     showApp(user);
     subscribeEntries(user.uid);
+    subscribeSettings(user.uid);
   } else {
     unsubscribeEntries();
+    unsubscribeSettings();
     showAuthView();
   }
 }
@@ -974,7 +1009,7 @@ async function init() {
   renderCategoryOptions();
   renderGliderOptions();
   restoreGlider();
-  initInvoice();
+  initInvoice({ saveSettings: saveInvoiceSettings });
   document.getElementById("glider").addEventListener("change", rememberGlider);
   document.getElementById("edit-form").addEventListener("submit", onEditSubmit);
   document.getElementById("edit-cancel").addEventListener("click", cancelEdit);

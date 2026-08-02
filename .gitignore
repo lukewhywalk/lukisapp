@@ -9,3 +9,5 @@ desktop.ini
 # Rules mit echten E-Mail-Adressen und exportierte Flugdaten -- nie committen
 firestore.rules.local
 migration/*.json
+# Empfaengerdaten fuer das Outlook-Skript -- fremde Kontaktdaten
+tools/*.local.txt

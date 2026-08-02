@@ -12,31 +12,33 @@
 
 import { qrMatrix } from "./qr.js";
 
-const CREDITOR = {
-  iban: "CH0808440258875652004",
-  name: "Lukas Hachen",
-  street: "Breitenackerstrasse",
-  building: "19",
-  zip: "3853",
-  city: "Niederried",
-  vat: "CHE-498.690.683",
-};
+// Deliberately empty. This file is served to anyone who opens the page, so an
+// IBAN, a VAT number, a home address and a client's mail address have no place
+// in it. The real values live in the settings document in Firestore, behind the
+// same sign-in as the flights, and land here via setInvoiceSettings.
+let CREDITOR = { iban: "", name: "", street: "", building: "", zip: "", city: "", vat: "" };
+let DEBTOR = { name: "", street: "", building: "", zip: "", city: "" };
+let MAIL_TO = "";
+let TERMS = "";
 
-const DEBTOR = {
-  name: "Paragliding Interlaken GmbH",
-  street: "Jungfraustrasse",
-  building: "44",
-  zip: "3800",
-  city: "Interlaken",
-};
+// Form field -> settings key. The ids in index.html are `inv-set-<key>`.
+const SETTING_KEYS = [
+  "creditor-name", "creditor-street", "creditor-building", "creditor-zip",
+  "creditor-city", "creditor-iban", "creditor-vat",
+  "debtor-name", "debtor-street", "debtor-building", "debtor-zip", "debtor-city",
+  "mail-to", "mail-greeting", "terms",
+];
+
+// Everything an invoice cannot be printed without. The mail fields are not on
+// the list -- a bill can be handed over on paper -- and the VAT number only
+// applies once registered.
+const OPTIONAL_KEYS = ["mail-to", "mail-greeting", "creditor-vat"];
+const REQUIRED_KEYS = SETTING_KEYS.filter((k) => !OPTIONAL_KEYS.includes(k));
 
 // Per mille rather than percent, because the maths runs on integers: 4805.00 at
 // 8.1% is exactly 389.205, and 480500 * 81 / 1000 lands on 389.205 precisely,
 // where 480500 * 8.1 / 100 comes out a hair below it and would round down.
 const VAT_PERMILLE = 81;
-const TERMS = "Fällig 15 Tage nach Erhalt";
-
-const MAIL_TO = "tom@paragliding-interlaken.ch";
 
 // Prices are the standing rates, not a per-invoice figure -- whatever was last
 // entered becomes the default for the next month. The fallbacks apply only to a
@@ -106,6 +108,85 @@ function monthLabel(key) {
 
 function monthKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/* ------------------------------- Settings -------------------------------- */
+
+let settingsValues = {};
+let saveSettings = null; // provided by app.js -- writes the settings document
+
+// Runs on every snapshot of the settings document. A field being edited is left
+// alone, so a save arriving mid-typing does not overwrite what is being typed.
+export function setInvoiceSettings(data) {
+  settingsValues = data || {};
+  for (const key of SETTING_KEYS) {
+    const field = document.getElementById(`inv-set-${key}`);
+    if (field && document.activeElement !== field) field.value = settingsValues[key] || "";
+  }
+  applySettings();
+  updateSettingsState();
+}
+
+function applySettings() {
+  const at = (key) => (settingsValues[key] || "").trim();
+  CREDITOR = {
+    name: at("creditor-name"),
+    street: at("creditor-street"),
+    building: at("creditor-building"),
+    zip: at("creditor-zip"),
+    city: at("creditor-city"),
+    iban: at("creditor-iban").replace(/\s+/g, ""), // stored spaced or not, used bare
+    vat: at("creditor-vat"),
+  };
+  DEBTOR = {
+    name: at("debtor-name"),
+    street: at("debtor-street"),
+    building: at("debtor-building"),
+    zip: at("debtor-zip"),
+    city: at("debtor-city"),
+  };
+  MAIL_TO = at("mail-to");
+  TERMS = at("terms");
+}
+
+function missingSettings() {
+  return REQUIRED_KEYS.filter((key) => !(settingsValues[key] || "").trim());
+}
+
+function readSettingsForm() {
+  const values = {};
+  for (const key of SETTING_KEYS) {
+    values[key] = (document.getElementById(`inv-set-${key}`).value || "").trim();
+  }
+  return values;
+}
+
+function updateSettingsState() {
+  const missing = missingSettings();
+  const status = document.getElementById("inv-set-status");
+  if (missing.length) {
+    status.textContent =
+      `${missing.length} Pflichtangabe${missing.length === 1 ? "" : "n"} fehlt noch — ` +
+      "ohne diese lässt sich keine Rechnung erstellen.";
+    document.getElementById("inv-settings").open = true;
+  } else {
+    status.textContent = "";
+  }
+}
+
+async function onSaveSettings() {
+  const button = document.getElementById("inv-set-save");
+  const status = document.getElementById("inv-set-status");
+  button.disabled = true;
+  try {
+    await saveSettings(readSettingsForm());
+    status.textContent = "Gespeichert.";
+  } catch (err) {
+    console.error("Failed to save invoice settings", err);
+    status.textContent = "Speichern fehlgeschlagen.";
+  } finally {
+    button.disabled = false;
+  }
 }
 
 /* ------------------------------ Form state ------------------------------- */
@@ -407,6 +488,17 @@ function fitPreview() {
 }
 
 function build() {
+  const missing = missingSettings();
+  if (missing.length) {
+    document.getElementById("inv-sheet").innerHTML =
+      '<p class="muted">Rechnungsdaten unvollständig — bitte oben ausfüllen und speichern.</p>';
+    document.getElementById("inv-print").hidden = true;
+    document.getElementById("inv-mail").hidden = true;
+    built = null;
+    updateSettingsState();
+    return;
+  }
+
   const invoice = readForm();
   if (!invoice.items.some((item) => item.count > 0)) {
     document.getElementById("inv-sheet").innerHTML =
@@ -423,8 +515,10 @@ function build() {
   fitPreview();
 }
 
+// Doubles as the PDF file name -- see print(). tools/outlook-rechnung.ps1 finds
+// the file by the same pattern.
 function subjectFor(period) {
-  return `Rechnung Paragliding Lukas Hachen ${period}`;
+  return `Rechnung Paragliding ${CREDITOR.name} ${period}`;
 }
 
 // Opens the mail client with everything but the attachment filled in. mailto
@@ -432,14 +526,20 @@ function subjectFor(period) {
 // in by hand. tools/outlook-rechnung.ps1 does that part on this PC.
 function mail() {
   if (!built) return;
+  if (!MAIL_TO) {
+    document.getElementById("inv-set-status").textContent =
+      "Keine Mailadresse hinterlegt — bitte in den Rechnungsdaten eintragen.";
+    document.getElementById("inv-settings").open = true;
+    return;
+  }
   const period = monthLabel(built.month);
   const body = [
-    "Guten Tag Tom",
+    (settingsValues["mail-greeting"] || "Guten Tag").trim(),
     "",
     `Im Anhang die Rechnung für die im ${period} durchgeführten Tandemflüge.`,
     "",
     "Freundliche Grüsse",
-    "Lukas Hachen",
+    CREDITOR.name,
   ].join("\r\n");
   window.location.href =
     `mailto:${MAIL_TO}?subject=${encodeURIComponent(subjectFor(period))}&body=${encodeURIComponent(body)}`;
@@ -471,7 +571,10 @@ export function setInvoiceEntries(entries) {
   syncCounts();
 }
 
-export function initInvoice() {
+export function initInvoice(handlers) {
+  saveSettings = handlers.saveSettings;
+  document.getElementById("inv-set-save").addEventListener("click", onSaveSettings);
+
   const today = new Date();
   document.getElementById("inv-date").value =
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;

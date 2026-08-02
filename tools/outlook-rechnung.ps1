@@ -16,7 +16,30 @@
 
 $ErrorActionPreference = 'Stop'
 
-$Empfaenger = 'tom@paragliding-interlaken.ch'
+# Empfaenger, Anrede und Absender stehen in einer lokalen Datei neben diesem
+# Skript, nicht hier: das Repo ist oeffentlich, und die Adresse gehoert einem
+# Dritten. Die Datei ist per .gitignore ausgeschlossen.
+#
+# tools\empfaenger.local.txt -- drei Zeilen:
+#   tom@example.ch
+#   Guten Tag Tom
+#   Lukas Hachen
+$configPath = Join-Path $PSScriptRoot 'empfaenger.local.txt'
+if (-not (Test-Path $configPath)) {
+    Write-Host "Datei fehlt: $configPath" -ForegroundColor Red
+    Write-Host 'Drei Zeilen anlegen: Mailadresse, Anrede, Absendername.'
+    Read-Host 'Enter zum Schliessen'
+    exit 1
+}
+$config = @(Get-Content -Path $configPath -Encoding UTF8 | Where-Object { $_.Trim() })
+if ($config.Count -lt 3) {
+    Write-Host "$configPath braucht drei Zeilen: Mailadresse, Anrede, Absendername." -ForegroundColor Red
+    Read-Host 'Enter zum Schliessen'
+    exit 1
+}
+$Empfaenger = $config[0].Trim()
+$Anrede     = $config[1].Trim()
+$Absender   = $config[2].Trim()
 
 $ordner = Join-Path $env:USERPROFILE 'Downloads'
 $pdf = Get-ChildItem -Path $ordner -Filter 'Rechnung Paragliding*.pdf' -File |
@@ -37,16 +60,17 @@ if ($alter.TotalHours -gt 24) {
     Write-Host 'Achtung: diese Datei ist aelter als ein Tag.' -ForegroundColor Yellow
 }
 
-# "Rechnung Paragliding Lukas Hachen Juni 2026" -> "Juni 2026"
-$zeitraum = $pdf.BaseName -replace '^Rechnung Paragliding Lukas Hachen\s*', ''
-$betreff = "Rechnung Paragliding Lukas Hachen $zeitraum"
+# "Rechnung Paragliding <Absender> Juni 2026" -> "Juni 2026"
+$praefix = "Rechnung Paragliding $Absender"
+$zeitraum = $pdf.BaseName -replace ('^' + [regex]::Escape($praefix) + '\s*'), ''
+$betreff = "$praefix $zeitraum"
 $text = @(
-    'Guten Tag Tom',
+    $Anrede,
     '',
     "Im Anhang die Rechnung für die im $zeitraum durchgeführten Tandemflüge.",
     '',
     'Freundliche Grüsse',
-    'Lukas Hachen'
+    $Absender
 ) -join "`r`n"
 
 # Weg 1: klassisches Outlook, falls vorhanden -- haengt den PDF selbst an.
@@ -82,5 +106,6 @@ Write-Host ''
 Write-Host 'Anhaengen auf zwei Arten:'
 Write-Host '  1. Im Mailfenster in den Text klicken, Strg+V'
 Write-Host '  2. Oder die markierte Datei aus dem Explorer ins Mailfenster ziehen'
+
 
 

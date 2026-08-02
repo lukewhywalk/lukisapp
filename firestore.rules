@@ -22,5 +22,10 @@ service cloud.firestore {
     match /users/{uid}/entries/{entryId} {
       allow read, write: if isAllowedUser() && request.auth.uid == uid;
     }
+    // Invoice party data -- IBAN, addresses, the client's mail address. It lives
+    // here rather than in the app source because that source is served publicly.
+    match /users/{uid}/settings/{docId} {
+      allow read, write: if isAllowedUser() && request.auth.uid == uid;
+    }
   }
 }
