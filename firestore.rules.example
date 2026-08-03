@@ -1,13 +1,16 @@
-// Firestore security rules for Lukis.
+// TEMPLATE -- DO NOT PUBLISH THIS FILE AS IT STANDS.
 //
-// Google sign-in lets ANY Google account authenticate, so access is restricted
-// here: only allow-listed emails may use the app, and each may read/write only
-// their own bookings. Everyone else is denied (the app is non-functional for
-// them and they cannot touch data or storage).
+// The address below is a placeholder. Publishing this verbatim locks the real
+// account out of its own data: every read and write is denied, and the app
+// reports "Missing or insufficient permissions".
 //
-// Publish in the Firebase console (Firestore -> Rules). Put the REAL allowed
-// emails in the published rules; keep placeholders here so they are not exposed
-// in the public repo.
+// What to publish instead: firestore.rules.local, which holds the real
+// addresses and is excluded from the repository. Copy this file to that name
+// and replace the address if it does not exist yet.
+//
+// Google sign-in authenticates ANY Google account, so access is restricted
+// here: only allow-listed addresses may use the app, and each may read and
+// write only its own flights and invoice details. Everyone else is denied.
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {

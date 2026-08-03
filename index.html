@@ -310,9 +310,13 @@
       @page { size:A4; margin:0; }
       html, body { background:#fff; margin:0; padding:0; }
       .app-header, #view-loading, #view-auth, #view-log, #view-all, #view-stats,
-      #invoice-form, .toast { display:none !important; }
+      .toast { display:none !important; }
       .container { max-width:none; margin:0; padding:0; }
       #view-invoice { display:block !important; }
+      /* Only the rendered sheet goes on paper. Written as "everything in this
+         view except the preview" rather than as a list of ids, so a card added
+         later cannot quietly end up in the print again. */
+      #view-invoice > *:not(.sheet-preview) { display:none !important; }
       .sheet-preview { overflow:visible; padding:0; }
       /* Undo the preview downscale -- paper must come out at true size. */
       #inv-sheet { height:auto !important; }
