@@ -418,6 +418,49 @@
     </section>
     <!-- Invoice view: monthly bill for PGI, with a Swiss QR-bill payment part -->
     <section id="view-invoice" class="view" hidden>
+
+      <div class="card" id="invoice-form">
+        <h2 class="card-title">Monatsrechnung</h2>
+        <div class="field">
+          <label for="inv-month">Monat</label>
+          <select id="inv-month"></select>
+        </div>
+        <div class="field">
+          <label for="inv-date">Rechnungsdatum</label>
+          <input id="inv-date" type="date">
+        </div>
+        <!-- Counts come from the bookings; F+V is not logged and is typed in -->
+        <table class="inv-input">
+          <thead>
+            <tr><th>Position</th><th>Anzahl</th><th>Preis</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><label for="inv-count-bigblue">Big Blue</label></td>
+              <td><input id="inv-count-bigblue" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-bigblue" type="number" min="0" step="0.05" value="100"></td>
+            </tr>
+            <tr>
+              <td><label for="inv-count-doubleair">Double Air</label></td>
+              <td><input id="inv-count-doubleair" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-doubleair" type="number" min="0" step="0.05" value="170"></td>
+            </tr>
+            <tr>
+              <td><label for="inv-count-fv">F+V</label></td>
+              <td><input id="inv-count-fv" type="number" min="0" step="1" value="0"></td>
+              <td><input id="inv-price-fv" type="number" min="0" step="0.05" value="33"></td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="muted" style="margin:-6px 0 14px; font-size:13px;">
+          Geänderte Preise gelten ab sofort als Standard für die nächste Rechnung.
+        </p>
+        <div class="form-actions">
+          <button id="inv-build" type="button" class="btn btn-primary">Rechnung erstellen</button>
+          <button id="inv-print" type="button" class="btn btn-secondary" hidden>Drucken / Als PDF speichern</button>
+          <button id="inv-mail" type="button" class="btn btn-secondary" hidden>Mail vorbereiten</button>
+        </div>
+      </div>
       <!-- Party data lives in Firestore, not in the source: this page is public -->
       <details class="card" id="inv-settings">
         <summary class="card-title">Rechnungsdaten</summary>
@@ -470,48 +513,6 @@
         <button id="inv-set-save" type="button" class="btn btn-primary">Rechnungsdaten speichern</button>
       </details>
 
-      <div class="card" id="invoice-form">
-        <h2 class="card-title">Monatsrechnung</h2>
-        <div class="field">
-          <label for="inv-month">Monat</label>
-          <select id="inv-month"></select>
-        </div>
-        <div class="field">
-          <label for="inv-date">Rechnungsdatum</label>
-          <input id="inv-date" type="date">
-        </div>
-        <!-- Counts come from the bookings; F+V is not logged and is typed in -->
-        <table class="inv-input">
-          <thead>
-            <tr><th>Position</th><th>Anzahl</th><th>Preis</th></tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td><label for="inv-count-bigblue">Big Blue</label></td>
-              <td><input id="inv-count-bigblue" type="number" min="0" step="1" value="0"></td>
-              <td><input id="inv-price-bigblue" type="number" min="0" step="0.05" value="100"></td>
-            </tr>
-            <tr>
-              <td><label for="inv-count-doubleair">Double Air</label></td>
-              <td><input id="inv-count-doubleair" type="number" min="0" step="1" value="0"></td>
-              <td><input id="inv-price-doubleair" type="number" min="0" step="0.05" value="170"></td>
-            </tr>
-            <tr>
-              <td><label for="inv-count-fv">F+V</label></td>
-              <td><input id="inv-count-fv" type="number" min="0" step="1" value="0"></td>
-              <td><input id="inv-price-fv" type="number" min="0" step="0.05" value="33"></td>
-            </tr>
-          </tbody>
-        </table>
-        <p class="muted" style="margin:-6px 0 14px; font-size:13px;">
-          Geänderte Preise gelten ab sofort als Standard für die nächste Rechnung.
-        </p>
-        <div class="form-actions">
-          <button id="inv-build" type="button" class="btn btn-primary">Rechnung erstellen</button>
-          <button id="inv-print" type="button" class="btn btn-secondary" hidden>Drucken / Als PDF speichern</button>
-          <button id="inv-mail" type="button" class="btn btn-secondary" hidden>Mail vorbereiten</button>
-        </div>
-      </div>
       <div class="sheet-preview"><div id="inv-sheet"></div></div>
     </section>
 
