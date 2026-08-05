@@ -508,7 +508,7 @@ function dailyBreakdown(month) {
 }
 
 function extractSubjectFor(period) {
-  return `Flugauszug Paragliding ${CREDITOR.name} ${period}`;
+  return `Auszug Paragliding ${CREDITOR.name} ${period}`;
 }
 
 function extractHtml(invoice) {
@@ -551,8 +551,7 @@ function extractHtml(invoice) {
           ${rows}
           <tr class="daily-total"><td>Total</td>${cells(totals, grand)}</tr>
         </tbody>
-      </table>
-      <p class="inv-note">Tandemflug F+V wird nicht pro Flug erfasst und ist in dieser Aufstellung nicht enthalten.</p>`
+      </table>`
     : `<p class="inv-note">Für ${escapeHtml(period)} sind keine Flüge erfasst.</p>`;
 
   return `
@@ -571,7 +570,7 @@ function extractHtml(invoice) {
             </div>
           </div>
 
-          <h1 class="inv-title">FLUGAUSZUG</h1>
+          <h1 class="inv-title">AUSZUG</h1>
 
           <p class="inv-label">FÜR</p>
           <p class="inv-to">${debtorBlock()}</p>
