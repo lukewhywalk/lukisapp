@@ -106,6 +106,19 @@ function monthLabel(key) {
   return `${MONTH_NAMES[Number(month) - 1]} ${year}`;
 }
 
+const WEEKDAYS = ["So", "Mo", "Di", "Mi", "Do", "Fr", "Sa"];
+
+function dayKey(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+// "Di 02.06.2026" -- the weekday earns its place in a log of flying days.
+function formatDay(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  return `${WEEKDAYS[date.getDay()]} ${String(d).padStart(2, "0")}.${String(m).padStart(2, "0")}.${y}`;
+}
+
 function monthKey(date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
@@ -468,6 +481,105 @@ function sheetHtml(invoice) {
     </div>`;
 }
 
+/* ------------------------------ Flight extract --------------------------- */
+
+// Which day carried how many flights of which category, for the billed month.
+// F+V never appears here: it is not logged per flight, only counted by hand.
+function dailyBreakdown(month) {
+  const days = new Map();
+  for (const entry of entriesCache) {
+    const d = new Date(entry.savedAt);
+    if (Number.isNaN(d.getTime()) || monthKey(d) !== month) continue;
+    const key = dayKey(d);
+    let day = days.get(key);
+    if (!day) {
+      day = { byCat: new Map(), total: 0 };
+      days.set(key, day);
+    }
+    const category = entry.category || "—";
+    day.byCat.set(category, (day.byCat.get(category) || 0) + 1);
+    day.total += 1;
+  }
+  return [...days.entries()].sort((a, b) => (a[0] < b[0] ? -1 : 1));
+}
+
+function extractSubjectFor(period) {
+  return `Flugauszug Paragliding ${CREDITOR.name} ${period}`;
+}
+
+function extractHtml(invoice) {
+  const days = dailyBreakdown(invoice.month);
+  const period = monthLabel(invoice.month);
+
+  // Only the categories this month actually saw, in the configured order.
+  const present = new Set();
+  for (const [, day] of days) for (const category of day.byCat.keys()) present.add(category);
+  const columns = [
+    ...CATEGORIES.filter((c) => present.has(c)),
+    ...[...present].filter((c) => !CATEGORIES.includes(c)).sort(),
+  ];
+
+  const totals = new Map();
+  let grand = 0;
+  for (const [, day] of days) {
+    for (const [category, n] of day.byCat) totals.set(category, (totals.get(category) || 0) + n);
+    grand += day.total;
+  }
+
+  const cells = (byCat, total) =>
+    columns.map((c) => `<td class="num">${byCat.get(c) || "–"}</td>`).join("") +
+    `<td class="num col-total">${total}</td>`;
+
+  const rows = days
+    .map(([key, day]) => `<tr><td>${escapeHtml(formatDay(key))}</td>${cells(day.byCat, day.total)}</tr>`)
+    .join("");
+
+  const body = days.length
+    ? `<table class="inv-items inv-daily">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            ${columns.map((c) => `<th class="num">${escapeHtml(c)}</th>`).join("")}
+            <th class="num col-total">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+          <tr class="daily-total"><td>Total</td>${cells(totals, grand)}</tr>
+        </tbody>
+      </table>
+      <p class="inv-note">Tandemflug F+V wird nicht pro Flug erfasst und ist in dieser Aufstellung nicht enthalten.</p>`
+    : `<p class="inv-note">Für ${escapeHtml(period)} sind keine Flüge erfasst.</p>`;
+
+  return `
+    <div class="sheet">
+      <div class="page page-flow">
+        <div class="sheet-body">
+          <div class="inv-top">
+            <div>
+              ${escapeHtml(CREDITOR.name)}<br>
+              ${escapeHtml(`${CREDITOR.street} ${CREDITOR.building}`)}<br>
+              ${escapeHtml(`${CREDITOR.zip} ${CREDITOR.city}`)}
+            </div>
+            <div class="inv-meta">
+              Datum: ${escapeHtml(formatDate(invoice.date))}<br>
+              Auszug: ${escapeHtml(period)}
+            </div>
+          </div>
+
+          <h1 class="inv-title">FLUGAUSZUG</h1>
+
+          <p class="inv-label">FÜR</p>
+          <p class="inv-to">${debtorBlock()}</p>
+
+          <p class="inv-subject">Durchgeführte Tandemflüge im ${escapeHtml(period)}</p>
+
+          ${body}
+        </div>
+      </div>
+    </div>`;
+}
+
 /* --------------------------------- Wiring -------------------------------- */
 
 let built = null; // the invoice currently shown, needed for the PDF file name
@@ -476,9 +588,16 @@ let built = null; // the invoice currently shown, needed for the PDF file name
 // narrower than a desktop. Scale it down to fit rather than clipping it; the
 // print rules drop the transform so paper output stays at true size.
 function fitPreview() {
-  const host = document.getElementById("inv-sheet");
+  for (const id of ["inv-sheet", "inv-extract"]) fitSheet(id);
+}
+
+function fitSheet(id) {
+  const host = document.getElementById(id);
   const sheet = host.querySelector(".sheet");
-  if (!sheet) return;
+  if (!sheet) {
+    host.style.height = "";
+    return;
+  }
   sheet.style.transform = "none";
   host.style.height = "";
   const scale = Math.min(1, host.clientWidth / sheet.offsetWidth);
@@ -490,29 +609,35 @@ function fitPreview() {
 function build() {
   const missing = missingSettings();
   if (missing.length) {
-    document.getElementById("inv-sheet").innerHTML =
-      '<p class="muted">Rechnungsdaten unvollständig — bitte oben ausfüllen und speichern.</p>';
-    document.getElementById("inv-print").hidden = true;
-    document.getElementById("inv-mail").hidden = true;
-    built = null;
+    clearSheets();
     updateSettingsState();
     return;
   }
 
   const invoice = readForm();
   if (!invoice.items.some((item) => item.count > 0)) {
-    document.getElementById("inv-sheet").innerHTML =
-      '<p class="muted">Keine Positionen — mindestens eine Anzahl muss grösser als null sein.</p>';
-    document.getElementById("inv-print").hidden = true;
-    document.getElementById("inv-mail").hidden = true;
-    built = null;
+    clearSheets("Keine Positionen — mindestens eine Anzahl muss grösser als null sein.");
     return;
   }
+
   built = invoice;
   document.getElementById("inv-sheet").innerHTML = sheetHtml(invoice);
-  document.getElementById("inv-print").hidden = false;
-  document.getElementById("inv-mail").hidden = false;
+  document.getElementById("inv-extract").innerHTML = extractHtml(invoice);
+  for (const id of ["inv-print", "inv-extract-print", "inv-mail"]) {
+    document.getElementById(id).hidden = false;
+  }
   fitPreview();
+}
+
+function clearSheets(message) {
+  document.getElementById("inv-sheet").innerHTML = message
+    ? `<p class="muted">${escapeHtml(message)}</p>`
+    : '<p class="muted">Rechnungsdaten unvollständig — bitte unten ausfüllen und speichern.</p>';
+  document.getElementById("inv-extract").innerHTML = "";
+  for (const id of ["inv-print", "inv-extract-print", "inv-mail"]) {
+    document.getElementById(id).hidden = true;
+  }
+  built = null;
 }
 
 // Doubles as the PDF file name -- see print(). tools/outlook-rechnung.ps1 finds
@@ -545,13 +670,27 @@ function mail() {
     `mailto:${MAIL_TO}?subject=${encodeURIComponent(subjectFor(period))}&body=${encodeURIComponent(body)}`;
 }
 
-// "Save as PDF" takes its file name from the document title, so swap the title
-// for the duration of the print dialog and put it back afterwards.
-function print() {
+// Both documents sit in the page at once; a class on <body> decides which one
+// the print rules let through, so each comes out as its own PDF. "Save as PDF"
+// takes the file name from the document title, hence the swap.
+function printDoc(kind) {
   if (!built) return;
+  const period = monthLabel(built.month);
+  const extract = kind === "extract";
+  const cls = extract ? "print-extract" : "print-invoice";
+  const title = extract ? extractSubjectFor(period) : subjectFor(period);
+
   const original = document.title;
-  document.title = subjectFor(monthLabel(built.month));
-  window.addEventListener("afterprint", () => { document.title = original; }, { once: true });
+  document.title = title;
+  document.body.classList.add(cls);
+  window.addEventListener(
+    "afterprint",
+    () => {
+      document.title = original;
+      document.body.classList.remove(cls);
+    },
+    { once: true }
+  );
   window.print();
 }
 
@@ -584,7 +723,8 @@ export function initInvoice(handlers) {
   }
   document.getElementById("inv-month").addEventListener("change", syncCounts);
   document.getElementById("inv-build").addEventListener("click", build);
-  document.getElementById("inv-print").addEventListener("click", print);
+  document.getElementById("inv-print").addEventListener("click", () => printDoc("invoice"));
+  document.getElementById("inv-extract-print").addEventListener("click", () => printDoc("extract"));
   document.getElementById("inv-mail").addEventListener("click", mail);
   window.addEventListener("resize", fitPreview);
 }

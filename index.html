@@ -247,6 +247,12 @@
     .page + .page { margin-top:8mm; }
     /* Reference line at the top, payment part flush with the bottom edge. */
     .page-bill { justify-content:space-between; }
+    /* The extract has no fixed length -- a busy month runs onto a second page
+       instead of being clipped at the fold. */
+    .page-flow { height:auto; min-height:297mm; overflow:visible; }
+    .inv-daily tbody td { border-bottom:.12mm solid #eee; }
+    .inv-daily .daily-total td { font-weight:700; border-top:.35mm solid #111; border-bottom:none; }
+    .inv-note { margin-top:6mm; font-size:8.5pt; color:#555; }
     .sheet-body {
       flex:1; padding:18mm 20mm 12mm; font-size:10pt; line-height:1.4;
       display:flex; flex-direction:column;
@@ -317,9 +323,14 @@
          view except the preview" rather than as a list of ids, so a card added
          later cannot quietly end up in the print again. */
       #view-invoice > *:not(.sheet-preview) { display:none !important; }
+      /* Invoice and flight extract are separate documents that happen to share
+         the page. The class printDoc() sets decides which one prints. */
+      #inv-sheet, #inv-extract { display:none !important; }
+      body.print-invoice #inv-sheet { display:block !important; }
+      body.print-extract #inv-extract { display:block !important; }
       .sheet-preview { overflow:visible; padding:0; }
       /* Undo the preview downscale -- paper must come out at true size. */
-      #inv-sheet { height:auto !important; }
+      #inv-sheet, #inv-extract { height:auto !important; }
       .sheet { width:210mm; margin:0; transform:none !important; }
       .page { box-shadow:none; margin:0; }
       .page + .page { margin-top:0; break-before:page; page-break-before:always; }
@@ -461,7 +472,8 @@
         </p>
         <div class="form-actions">
           <button id="inv-build" type="button" class="btn btn-primary">Rechnung erstellen</button>
-          <button id="inv-print" type="button" class="btn btn-secondary" hidden>Drucken / Als PDF speichern</button>
+          <button id="inv-print" type="button" class="btn btn-secondary" hidden>Rechnung drucken / als PDF</button>
+          <button id="inv-extract-print" type="button" class="btn btn-secondary" hidden>Flugauszug drucken / als PDF</button>
           <button id="inv-mail" type="button" class="btn btn-secondary" hidden>Mail vorbereiten</button>
         </div>
       </div>
@@ -517,7 +529,12 @@
         <button id="inv-set-save" type="button" class="btn btn-primary">Rechnungsdaten speichern</button>
       </details>
 
-      <div class="sheet-preview"><div id="inv-sheet"></div></div>
+      <!-- Two separate documents. Both are previewed; a body class picks which
+           one the print rules let through, so each saves as its own PDF. -->
+      <div class="sheet-preview">
+        <div id="inv-sheet"></div>
+        <div id="inv-extract"></div>
+      </div>
     </section>
 
     <!-- Stats view: flights per month and year, category split on request -->
