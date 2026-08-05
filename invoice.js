@@ -587,8 +587,13 @@ let built = null; // the invoice currently shown, needed for the PDF file name
 // The sheet is a fixed 210 mm wide, which overflows the column on anything
 // narrower than a desktop. Scale it down to fit rather than clipping it; the
 // print rules drop the transform so paper output stays at true size.
-function fitPreview() {
-  for (const id of ["inv-sheet", "inv-extract"]) fitSheet(id);
+// Measured a frame late: reading offsetWidth in the same turn as the innerHTML
+// that produced it can hand back a stale box, and a scale of 1 leaves the sheet
+// at 210 mm inside a 560 px column, where it reads as cut off.
+export function fitPreview() {
+  requestAnimationFrame(() => {
+    for (const id of ["inv-sheet", "inv-extract"]) fitSheet(id);
+  });
 }
 
 function fitSheet(id) {
@@ -600,7 +605,12 @@ function fitSheet(id) {
   }
   sheet.style.transform = "none";
   host.style.height = "";
-  const scale = Math.min(1, host.clientWidth / sheet.offsetWidth);
+  const available = host.clientWidth;
+  const natural = sheet.offsetWidth;
+  // Zero width means the tab is hidden -- measuring there would scale to
+  // nothing. Leave it be; showing the tab refits.
+  if (!available || !natural) return;
+  const scale = Math.min(1, available / natural);
   sheet.style.transformOrigin = "top left";
   sheet.style.transform = `scale(${scale})`;
   host.style.height = `${sheet.offsetHeight * scale}px`;

@@ -33,7 +33,7 @@ import {
   onSnapshot,
 } from "https://www.gstatic.com/firebasejs/11.3.1/firebase-firestore.js";
 import { firebaseConfig } from "./firebase-config.js";
-import { initInvoice, setInvoiceEntries, setInvoiceSettings } from "./invoice.js";
+import { initInvoice, setInvoiceEntries, setInvoiceSettings, fitPreview } from "./invoice.js";
 
 // The four flight categories. Each becomes a quick-book button and an option in
 // the edit dropdown. Add or rename here to change them everywhere.
@@ -512,6 +512,9 @@ function setView(view) {
   document.getElementById("view-all").hidden = view !== "all";
   document.getElementById("view-stats").hidden = view !== "stats";
   document.getElementById("view-invoice").hidden = view !== "invoice";
+  // A hidden element measures zero, so the sheets can only be scaled to the
+  // column once this tab is actually on screen.
+  if (view === "invoice") fitPreview();
   for (const tab of document.querySelectorAll(".tab")) {
     tab.classList.toggle("is-active", tab.dataset.view === view);
   }
