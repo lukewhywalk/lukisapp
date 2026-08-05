@@ -596,24 +596,23 @@ export function fitPreview() {
   });
 }
 
+// zoom rather than transform: a transform only shrinks the painting, so the
+// sheet still claims 210 mm of layout, the container has to be resized by hand
+// and invisible overhang remains around it. zoom scales the layout itself, so
+// everything else follows on its own and there is nothing to keep in step.
 function fitSheet(id) {
   const host = document.getElementById(id);
   const sheet = host.querySelector(".sheet");
-  if (!sheet) {
-    host.style.height = "";
-    return;
-  }
-  sheet.style.transform = "none";
-  host.style.height = "";
+  host.style.height = ""; // left over from the transform-based version
+  if (!sheet) return;
+
+  sheet.style.zoom = "";
   const available = host.clientWidth;
   const natural = sheet.offsetWidth;
   // Zero width means the tab is hidden -- measuring there would scale to
   // nothing. Leave it be; showing the tab refits.
   if (!available || !natural) return;
-  const scale = Math.min(1, available / natural);
-  sheet.style.transformOrigin = "top left";
-  sheet.style.transform = `scale(${scale})`;
-  host.style.height = `${sheet.offsetHeight * scale}px`;
+  if (available < natural) sheet.style.zoom = available / natural;
 }
 
 function build() {

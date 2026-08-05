@@ -7,7 +7,7 @@
 
 "use strict";
 
-const CACHE = "lukis-v33";
+const CACHE = "lukis-v34";
 const RUNTIME = "lukis-runtime"; // Firebase SDK modules, cached on first use
 const ASSETS = [
   "./",
