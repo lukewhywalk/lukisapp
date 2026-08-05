@@ -53,6 +53,10 @@ const LINES = [
   { key: "fv", label: "Tandemflug F+V", categories: null }, // not logged -- entered by hand
 ];
 
+// Column order for the extract. Taken from LINES rather than from app.js, which
+// would mean importing across a module that already imports this one.
+const CATEGORY_ORDER = LINES.flatMap((line) => line.categories || []);
+
 const MONTH_NAMES = [
   "Januar", "Februar", "März", "April", "Mai", "Juni",
   "Juli", "August", "September", "Oktober", "November", "Dezember",
@@ -515,8 +519,8 @@ function extractHtml(invoice) {
   const present = new Set();
   for (const [, day] of days) for (const category of day.byCat.keys()) present.add(category);
   const columns = [
-    ...CATEGORIES.filter((c) => present.has(c)),
-    ...[...present].filter((c) => !CATEGORIES.includes(c)).sort(),
+    ...CATEGORY_ORDER.filter((c) => present.has(c)),
+    ...[...present].filter((c) => !CATEGORY_ORDER.includes(c)).sort(),
   ];
 
   const totals = new Map();
